@@ -1,0 +1,309 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CITIZEN
+  EMPLOYEE
+  MANAGER
+  ADMIN
+}
+
+enum GreenAssetType {
+  TREE
+  PARK
+  SHRUB
+  GARDEN
+}
+
+enum AssetHealthStatus {
+  HEALTHY
+  NEEDS_ATTENTION
+  DRY
+  DISEASED
+  DAMAGED
+  REMOVED
+}
+
+enum AssetLifecycleStatus {
+  ACTIVE
+  UNDER_MAINTENANCE
+  ARCHIVED
+}
+
+enum MaintenanceTaskType {
+  WATERING
+  PRUNING
+  INSPECTION
+  TREATMENT
+  CLEANUP
+  REMOVAL
+  OTHER
+}
+
+enum MaintenanceTaskStatus {
+  PLANNED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum IncidentType {
+  DRY_TREE
+  VANDALISM
+  DISEASE
+  FALLEN_BRANCH
+  WASTE
+  OTHER
+}
+
+enum IncidentStatus {
+  REPORTED
+  VERIFIED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AdoptionStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum RewardReason {
+  ADOPTION_CREATED
+  CARE_LOGGED
+  INCIDENT_REPORTED
+  INCIDENT_VERIFIED
+  CERTIFICATE_GRANTED
+  MANUAL_ADJUSTMENT
+}
+
+model User {
+  id                String              @id @default(uuid())
+  email             String              @unique
+  name              String
+  passwordHash      String
+  role              UserRole            @default(CITIZEN)
+  greenPoints       Int                 @default(0)
+  isActive          Boolean             @default(true)
+  lastLoginAt       DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  createdAssets     GreenAsset[]        @relation("AssetCreatedBy")
+  createdTasks      MaintenanceTask[]   @relation("TaskCreatedBy")
+  assignedTasks     MaintenanceTask[]   @relation("TaskAssignedTo")
+  completedTasks    MaintenanceTask[]   @relation("TaskCompletedBy")
+  maintenanceLogs   MaintenanceLog[]    @relation("MaintenanceLoggedBy")
+  incidentReports   IncidentReport[]    @relation("IncidentReportedBy")
+  verifiedIncidents IncidentReport[]    @relation("IncidentVerifiedBy")
+  adoptions         Adoption[]
+  zoneAssignments   ZoneAssignment[]
+  rewardTransactions RewardTransaction[]
+
+  @@index([role])
+  @@index([email])
+}
+
+model Zone {
+  id          String            @id @default(uuid())
+  name        String            @unique
+  description String?
+  boundary    Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  assets      GreenAsset[]
+  tasks       MaintenanceTask[]
+  incidents   IncidentReport[]
+  assignments ZoneAssignment[]
+}
+
+model ZoneAssignment {
+  id         String   @id @default(uuid())
+  zoneId     String
+  employeeId String
+  assignedAt DateTime @default(now())
+
+  zone       Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  employee   User     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([zoneId, employeeId])
+  @@index([employeeId])
+}
+
+model GreenAsset {
+  id              String               @id @default(uuid())
+  type            GreenAssetType        @default(TREE)
+  commonName      String?
+  species         String
+  description     String?
+  latitude        Decimal              @db.Decimal(9, 6)
+  longitude       Decimal              @db.Decimal(9, 6)
+  plantedAt       DateTime?
+  healthStatus    AssetHealthStatus    @default(HEALTHY)
+  lifecycleStatus AssetLifecycleStatus @default(ACTIVE)
+  metadata        Json?
+  zoneId          String?
+  createdById     String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  zone            Zone?                @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  createdBy       User?                @relation("AssetCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks           MaintenanceTask[]
+  maintenanceLogs MaintenanceLog[]
+  healthLogs      AssetHealthLog[]
+  incidents       IncidentReport[]
+  adoptions       Adoption[]
+
+  @@index([zoneId])
+  @@index([healthStatus])
+  @@index([latitude, longitude])
+}
+
+model MaintenanceTask {
+  id             String                @id @default(uuid())
+  title          String
+  description    String?
+  type           MaintenanceTaskType
+  status         MaintenanceTaskStatus @default(PLANNED)
+  priority       Priority              @default(MEDIUM)
+  scheduledFor   DateTime?
+  dueAt          DateTime?
+  recurrenceRule String?
+  assetId        String?
+  zoneId         String?
+  assignedToId   String?
+  createdById    String?
+  completedById  String?
+  completedAt    DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  asset          GreenAsset?           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  zone           Zone?                 @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  assignedTo     User?                 @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy      User?                 @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  completedBy    User?                 @relation("TaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  logs           MaintenanceLog[]
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([assetId])
+  @@index([zoneId])
+}
+
+model MaintenanceLog {
+  id             String             @id @default(uuid())
+  taskId         String
+  assetId        String?
+  employeeId     String?
+  notes          String?
+  resultingHealth AssetHealthStatus?
+  performedAt    DateTime           @default(now())
+  createdAt       DateTime          @default(now())
+
+  task           MaintenanceTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  asset          GreenAsset?        @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  employee       User?              @relation("MaintenanceLoggedBy", fields: [employeeId], references: [id], onDelete: SetNull)
+}
+
+model AssetHealthLog {
+  id          String            @id @default(uuid())
+  assetId     String
+  status      AssetHealthStatus
+  source      String
+  notes       String?
+  recordedAt  DateTime          @default(now())
+
+  asset       GreenAsset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, recordedAt])
+}
+
+model IncidentReport {
+  id           String         @id @default(uuid())
+  type         IncidentType
+  status       IncidentStatus @default(REPORTED)
+  priority     Priority       @default(MEDIUM)
+  title        String
+  description  String
+  photoUrls    String[]       @default([])
+  latitude     Decimal?       @db.Decimal(9, 6)
+  longitude    Decimal?       @db.Decimal(9, 6)
+  reporterId   String?
+  verifiedById String?
+  assetId      String?
+  zoneId       String?
+  verifiedAt   DateTime?
+  resolvedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  reporter     User?          @relation("IncidentReportedBy", fields: [reporterId], references: [id], onDelete: SetNull)
+  verifiedBy   User?          @relation("IncidentVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  asset        GreenAsset?    @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  zone         Zone?          @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model Adoption {
+  id          String          @id @default(uuid())
+  userId      String
+  assetId     String
+  status      AdoptionStatus  @default(ACTIVE)
+  startedAt   DateTime        @default(now())
+  endedAt     DateTime?
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset       GreenAsset      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  careLogs    AdoptionCareLog[]
+
+  @@unique([userId, assetId])
+  @@index([assetId])
+}
+
+model AdoptionCareLog {
+  id          String    @id @default(uuid())
+  adoptionId  String
+  notes       String?
+  photoUrls   String[]  @default([])
+  loggedAt    DateTime  @default(now())
+
+  adoption    Adoption  @relation(fields: [adoptionId], references: [id], onDelete: Cascade)
+}
+
+model RewardTransaction {
+  id          String       @id @default(uuid())
+  userId      String
+  points      Int
+  reason      RewardReason
+  description String?
+  createdAt   DateTime     @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
