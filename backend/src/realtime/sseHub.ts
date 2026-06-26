@@ -3,6 +3,7 @@ import type { Response } from "express";
 
 export type SseEvent =
   | "connected"
+  | "adoption.created"
   | "incident.created"
   | "incident.updated"
   | "maintenance.updated"

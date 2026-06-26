@@ -401,7 +401,18 @@ code {
   font-size: 0.86rem;
 }
 
-.button-row button:hover:not(:disabled) {
+.button-row a {
+  border: 1px solid #c9d6cf;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  color: #20312a;
+  background: #ffffff;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.button-row button:hover:not(:disabled),
+.button-row a:hover {
   border-color: #12633f;
   color: #12633f;
 }
@@ -560,6 +571,24 @@ code {
   font-weight: 700;
 }
 
+.action-card {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.action-stack .primary-action {
+  width: fit-content;
+  border: 0;
+  color: #ffffff;
+  background: #12633f;
+  cursor: pointer;
+}
+
+.action-stack .primary-action:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .inline-form {
   display: grid;
   gap: 0.85rem;
@@ -605,6 +634,22 @@ code {
 .form-success {
   color: #12633f;
   font-weight: 800;
+}
+
+.form-success a,
+.text-link {
+  color: #12633f;
+  font-weight: 800;
+}
+
+.points-pill {
+  border: 1px solid #b9d7c7;
+  border-radius: 999px;
+  padding: 0.5rem 0.8rem;
+  color: #12633f;
+  background: #e5f2eb;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .auth-prompt {

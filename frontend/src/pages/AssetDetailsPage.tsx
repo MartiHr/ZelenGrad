@@ -45,6 +45,17 @@ type CreatedIncident = {
   status: string;
 };
 
+type Adoption = {
+  id: string;
+  status: string;
+  startedAt: string;
+  asset: {
+    id: string;
+    commonName: string | null;
+    species: string;
+  };
+};
+
 const incidentTypes = [
   "DRY_TREE",
   "VANDALISM",
@@ -69,7 +80,7 @@ const formatDate = (value: string | null) => {
 
 export const AssetDetailsPage = () => {
   const { assetId } = useParams();
-  const { isAuthenticated, token } = useAuth();
+  const { hasRole, isAuthenticated, refreshUser, token } = useAuth();
   const [asset, setAsset] = useState<Asset | null>(null);
   const [history, setHistory] = useState<AssetHistory | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +92,9 @@ export const AssetDetailsPage = () => {
   const [reportError, setReportError] = useState<string | null>(null);
   const [createdIncident, setCreatedIncident] = useState<CreatedIncident | null>(null);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [adoptionError, setAdoptionError] = useState<string | null>(null);
+  const [createdAdoption, setCreatedAdoption] = useState<Adoption | null>(null);
+  const [isAdopting, setIsAdopting] = useState(false);
 
   useEffect(() => {
     if (!assetId) {
@@ -161,6 +175,34 @@ export const AssetDetailsPage = () => {
       setReportError(caughtError instanceof ApiError ? caughtError.message : "Could not submit incident report.");
     } finally {
       setIsSubmittingReport(false);
+    }
+  };
+
+  const adoptTree = async () => {
+    if (!token) {
+      setAdoptionError("Please log in before adopting a tree.");
+      return;
+    }
+
+    setIsAdopting(true);
+    setAdoptionError(null);
+    setCreatedAdoption(null);
+
+    try {
+      const adoption = await apiRequest<Adoption>("/adoptions", {
+        method: "POST",
+        token,
+        body: {
+          assetId: asset.id
+        }
+      });
+
+      setCreatedAdoption(adoption);
+      await refreshUser();
+    } catch (caughtError) {
+      setAdoptionError(caughtError instanceof ApiError ? caughtError.message : "Could not adopt this tree.");
+    } finally {
+      setIsAdopting(false);
     }
   };
 
@@ -283,9 +325,24 @@ export const AssetDetailsPage = () => {
                 </div>
               </div>
             )}
-            <button type="button" disabled>
-              Adopt Tree
-            </button>
+            {isAuthenticated && hasRole("CITIZEN") ? (
+              <div className="action-card">
+                <button className="primary-action" type="button" disabled={isAdopting} onClick={() => void adoptTree()}>
+                  {isAdopting ? "Adopting..." : "Adopt Tree"}
+                </button>
+                {adoptionError ? <p className="form-error">{adoptionError}</p> : null}
+                {createdAdoption ? (
+                  <p className="form-success">
+                    Adopted {createdAdoption.asset.commonName ?? createdAdoption.asset.species}. View it in{" "}
+                    <Link to="/my-forest">My Forest</Link>.
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <button type="button" disabled>
+                Adopt Tree
+              </button>
+            )}
             <button type="button" disabled>
               Schedule Maintenance
             </button>
