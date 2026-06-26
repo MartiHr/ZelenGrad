@@ -478,6 +478,52 @@ code {
   margin: 0;
 }
 
+.user-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.user-card {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid #d9e2dc;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 1rem;
+}
+
+.user-card header {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.user-card h2 {
+  margin: 0;
+  color: #173f2d;
+  font-size: 1.25rem;
+  letter-spacing: 0;
+}
+
+.user-card dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.user-card dt {
+  color: #60756c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.user-card dd {
+  margin: 0;
+}
+
 .completion-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);
