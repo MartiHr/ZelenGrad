@@ -12,7 +12,14 @@ export const DashboardPage = () => {
 
   useEffect(() => {
     const source = createDashboardEventSource();
-    const eventTypes = ["connected", "incident.created", "incident.updated", "maintenance.updated", "asset.updated"];
+    const eventTypes = [
+      "connected",
+      "adoption.created",
+      "incident.created",
+      "incident.updated",
+      "maintenance.updated",
+      "asset.updated"
+    ];
 
     for (const type of eventTypes) {
       source.addEventListener(type, (event) => {
@@ -26,7 +33,7 @@ export const DashboardPage = () => {
   return (
     <section className="page">
       <h1>Live Dashboard</h1>
-      <p>Real-time incident and maintenance stream for managers and administrators.</p>
+      <p>Real-time adoption, incident, maintenance, and asset stream for managers and administrators.</p>
       <div className="panel">
         {events.length === 0 ? (
           <p>No live events yet.</p>
