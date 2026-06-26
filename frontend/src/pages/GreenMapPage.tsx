@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import L from "leaflet";
 import { Link } from "react-router";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 import { ApiError, apiRequest } from "../api";
+import { useAuth } from "../auth/AuthContext";
 
 type GreenAsset = {
   id: string;
@@ -23,6 +24,10 @@ type MapBoundsProps = {
   assets: GreenAsset[];
 };
 
+type MapClickHandlerProps = {
+  onPickCoordinates: (latitude: string, longitude: string) => void;
+};
+
 const healthColors: Record<string, string> = {
   HEALTHY: "#12633f",
   NEEDS_ATTENTION: "#b7791f",
@@ -32,6 +37,8 @@ const healthColors: Record<string, string> = {
   REMOVED: "#60756c"
 };
 
+const assetTypes = ["TREE", "PARK", "SHRUB", "GARDEN"];
+const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED"];
 const defaultCenter: [number, number] = [42.6977, 23.3219];
 
 const getCoordinates = (asset: GreenAsset): [number, number] => [Number(asset.latitude), Number(asset.longitude)];
@@ -68,12 +75,34 @@ const MapBounds = ({ assets }: MapBoundsProps) => {
   return null;
 };
 
+const MapClickHandler = ({ onPickCoordinates }: MapClickHandlerProps) => {
+  useMapEvents({
+    click: (event) => {
+      onPickCoordinates(event.latlng.lat.toFixed(6), event.latlng.lng.toFixed(6));
+    }
+  });
+
+  return null;
+};
+
 export const GreenMapPage = () => {
+  const { hasRole, token } = useAuth();
   const [assets, setAssets] = useState<GreenAsset[]>([]);
   const [healthStatus, setHealthStatus] = useState("");
   const [species, setSpecies] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [assetType, setAssetType] = useState("TREE");
+  const [assetCommonName, setAssetCommonName] = useState("");
+  const [assetSpecies, setAssetSpecies] = useState("");
+  const [assetDescription, setAssetDescription] = useState("");
+  const [assetLatitude, setAssetLatitude] = useState("");
+  const [assetLongitude, setAssetLongitude] = useState("");
+  const [assetHealthStatus, setAssetHealthStatus] = useState("HEALTHY");
+  const [assetPlantedAt, setAssetPlantedAt] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [isCreatingAsset, setIsCreatingAsset] = useState(false);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -90,17 +119,69 @@ export const GreenMapPage = () => {
     return value ? `?${value}` : "";
   }, [healthStatus, species]);
 
-  useEffect(() => {
+  const loadAssets = async () => {
     setIsLoading(true);
     setError(null);
 
-    apiRequest<GreenAsset[]>(`/assets${query}`)
-      .then(setAssets)
-      .catch((caughtError) => {
-        setError(caughtError instanceof ApiError ? caughtError.message : "Could not load green assets.");
-      })
-      .finally(() => setIsLoading(false));
+    try {
+      setAssets(await apiRequest<GreenAsset[]>(`/assets${query}`));
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiError ? caughtError.message : "Could not load green assets.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadAssets();
   }, [query]);
+
+  const canManageAssets = hasRole("EMPLOYEE", "MANAGER", "ADMIN");
+
+  const createGreenAsset = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!token) {
+      setCreateError("Please log in before registering an asset.");
+      return;
+    }
+
+    setIsCreatingAsset(true);
+    setCreateError(null);
+    setCreateSuccess(null);
+
+    try {
+      const createdAsset = await apiRequest<GreenAsset>("/assets", {
+        method: "POST",
+        token,
+        body: {
+          type: assetType,
+          commonName: assetCommonName.trim() || undefined,
+          species: assetSpecies,
+          description: assetDescription.trim() || undefined,
+          latitude: assetLatitude,
+          longitude: assetLongitude,
+          plantedAt: assetPlantedAt || undefined,
+          healthStatus: assetHealthStatus
+        }
+      });
+
+      setCreateSuccess(`Registered ${createdAsset.commonName ?? createdAsset.species}.`);
+      setAssetCommonName("");
+      setAssetSpecies("");
+      setAssetDescription("");
+      setAssetLatitude("");
+      setAssetLongitude("");
+      setAssetPlantedAt("");
+      setAssetType("TREE");
+      setAssetHealthStatus("HEALTHY");
+      await loadAssets();
+    } catch (caughtError) {
+      setCreateError(caughtError instanceof ApiError ? caughtError.message : "Could not register green asset.");
+    } finally {
+      setIsCreatingAsset(false);
+    }
+  };
 
   return (
     <section className="page">
@@ -133,6 +214,14 @@ export const GreenMapPage = () => {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+          {canManageAssets ? (
+            <MapClickHandler
+              onPickCoordinates={(latitude, longitude) => {
+                setAssetLatitude(latitude);
+                setAssetLongitude(longitude);
+              }}
+            />
+          ) : null}
           <MapBounds assets={assets} />
           {assets.map((asset) => (
             <Marker key={asset.id} position={getCoordinates(asset)} icon={getMarkerIcon(asset.healthStatus)}>
@@ -149,6 +238,93 @@ export const GreenMapPage = () => {
           ))}
         </MapContainer>
       </div>
+
+      {canManageAssets ? (
+        <article className="panel details-panel">
+          <h2>Register Asset</h2>
+          <form className="inline-form asset-form" onSubmit={(event) => void createGreenAsset(event)}>
+            <div className="form-grid">
+              <label>
+                Type
+                <select value={assetType} onChange={(event) => setAssetType(event.target.value)}>
+                  {assetTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Health
+                <select value={assetHealthStatus} onChange={(event) => setAssetHealthStatus(event.target.value)}>
+                  {healthStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Common name
+                <input
+                  value={assetCommonName}
+                  onChange={(event) => setAssetCommonName(event.target.value)}
+                  maxLength={120}
+                  placeholder="Central oak"
+                />
+              </label>
+              <label>
+                Species
+                <input
+                  value={assetSpecies}
+                  onChange={(event) => setAssetSpecies(event.target.value)}
+                  maxLength={160}
+                  required
+                  placeholder="Quercus robur"
+                />
+              </label>
+              <label>
+                Latitude
+                <input
+                  value={assetLatitude}
+                  onChange={(event) => setAssetLatitude(event.target.value)}
+                  required
+                  type="number"
+                  step="0.000001"
+                />
+              </label>
+              <label>
+                Longitude
+                <input
+                  value={assetLongitude}
+                  onChange={(event) => setAssetLongitude(event.target.value)}
+                  required
+                  type="number"
+                  step="0.000001"
+                />
+              </label>
+              <label>
+                Planted
+                <input type="date" value={assetPlantedAt} onChange={(event) => setAssetPlantedAt(event.target.value)} />
+              </label>
+            </div>
+            <label>
+              Description
+              <textarea
+                value={assetDescription}
+                onChange={(event) => setAssetDescription(event.target.value)}
+                maxLength={1000}
+                placeholder="Short registry note"
+              />
+            </label>
+            {createError ? <p className="form-error">{createError}</p> : null}
+            {createSuccess ? <p className="form-success">{createSuccess}</p> : null}
+            <button type="submit" disabled={isCreatingAsset}>
+              {isCreatingAsset ? "Registering..." : "Register Asset"}
+            </button>
+          </form>
+        </article>
+      ) : null}
 
       <div className="asset-grid">
         {isLoading ? <p>Loading assets...</p> : null}
@@ -179,6 +355,9 @@ export const GreenMapPage = () => {
                 </dd>
               </div>
             </dl>
+            <div className="button-row">
+              <Link to={`/assets/${asset.id}`}>Open details</Link>
+            </div>
           </article>
         ))}
       </div>

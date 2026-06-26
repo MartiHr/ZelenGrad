@@ -642,6 +642,16 @@ code {
   padding-top: 0.9rem;
 }
 
+.asset-form {
+  max-width: none;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+}
+
 .form-success {
   color: #12633f;
   font-weight: 800;
