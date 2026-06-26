@@ -1,6 +1,15 @@
 import "dotenv/config";
 
-import { AssetHealthStatus, GreenAssetType, IncidentStatus, IncidentType, Priority, UserRole } from "@prisma/client";
+import {
+  AssetHealthStatus,
+  GreenAssetType,
+  IncidentStatus,
+  IncidentType,
+  MaintenanceTaskStatus,
+  MaintenanceTaskType,
+  Priority,
+  UserRole
+} from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "../src/lib/prisma.js";
@@ -56,6 +65,8 @@ const run = async () => {
 
   const admin = await prisma.user.findUniqueOrThrow({ where: { email: "admin@zelengrad.test" } });
   const citizen = await prisma.user.findUniqueOrThrow({ where: { email: "citizen@zelengrad.test" } });
+  const manager = await prisma.user.findUniqueOrThrow({ where: { email: "manager@zelengrad.test" } });
+  const employee = await prisma.user.findUniqueOrThrow({ where: { email: "employee@zelengrad.test" } });
 
   const centralOak = await prisma.greenAsset.upsert({
     where: { id: "seed-asset-central-oak" },
@@ -133,6 +144,37 @@ const run = async () => {
       zoneId: universityDistrict.id,
       latitude: 42.674326,
       longitude: 23.330191
+    }
+  });
+
+  await prisma.maintenanceTask.upsert({
+    where: { id: "seed-task-water-campus-linden" },
+    update: {
+      title: "Water Campus Linden",
+      description: "Respond to dry soil and curling leaves reported by a citizen.",
+      type: MaintenanceTaskType.WATERING,
+      status: MaintenanceTaskStatus.ASSIGNED,
+      priority: Priority.HIGH,
+      assetId: campusLinden.id,
+      zoneId: universityDistrict.id,
+      assignedToId: employee.id,
+      createdById: manager.id,
+      scheduledFor: new Date(),
+      dueAt: new Date(Date.now() + 1000 * 60 * 60 * 24)
+    },
+    create: {
+      id: "seed-task-water-campus-linden",
+      title: "Water Campus Linden",
+      description: "Respond to dry soil and curling leaves reported by a citizen.",
+      type: MaintenanceTaskType.WATERING,
+      status: MaintenanceTaskStatus.ASSIGNED,
+      priority: Priority.HIGH,
+      assetId: campusLinden.id,
+      zoneId: universityDistrict.id,
+      assignedToId: employee.id,
+      createdById: manager.id,
+      scheduledFor: new Date(),
+      dueAt: new Date(Date.now() + 1000 * 60 * 60 * 24)
     }
   });
 

@@ -1,24 +1,74 @@
+import { UserRole } from "@prisma/client";
 import { Router } from "express";
 
-import { sseHub } from "../realtime/sseHub.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
+import { validateQuery } from "../middleware/validateQuery.js";
+import {
+  createMaintenanceTask,
+  listMaintenanceTasks,
+  updateMaintenanceTaskStatus
+} from "../services/maintenance.service.js";
+import {
+  createMaintenanceTaskSchema,
+  listMaintenanceQuerySchema,
+  updateMaintenanceStatusSchema
+} from "../validators/maintenance.schemas.js";
+import type { ListMaintenanceQuery } from "../validators/maintenance.schemas.js";
 
 export const maintenanceRouter = Router();
 
-maintenanceRouter.get("/", (_request, response) => {
-  response.status(501).json({ message: "List maintenance tasks placeholder." });
-});
+const workerRoles = [UserRole.EMPLOYEE, UserRole.MANAGER, UserRole.ADMIN];
+const managerRoles = [UserRole.MANAGER, UserRole.ADMIN];
 
-maintenanceRouter.post("/", (_request, response) => {
-  response.status(501).json({ message: "Create maintenance task placeholder." });
-});
+maintenanceRouter.get(
+  "/",
+  requireAuth,
+  requireRole(...workerRoles),
+  validateQuery(listMaintenanceQuerySchema),
+  async (request, response, next) => {
+    try {
+      const canViewAll = request.user!.role === UserRole.MANAGER || request.user!.role === UserRole.ADMIN;
+      response.json(
+        await listMaintenanceTasks(response.locals.validatedQuery as ListMaintenanceQuery, request.user!.id, canViewAll)
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-maintenanceRouter.patch("/:taskId/status", (request, response) => {
-  sseHub.broadcast("maintenance.updated", {
-    taskId: request.params.taskId,
-    updatedAt: new Date().toISOString()
-  });
+maintenanceRouter.post(
+  "/",
+  requireAuth,
+  requireRole(...managerRoles),
+  validateBody(createMaintenanceTaskSchema),
+  async (request, response, next) => {
+    try {
+      response.status(201).json(await createMaintenanceTask(request.body, request.user!.id));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-  response.status(501).json({
-    message: `Update maintenance task ${request.params.taskId} status placeholder. SSE broadcast is wired.`
-  });
-});
+maintenanceRouter.patch(
+  "/:taskId/status",
+  requireAuth,
+  requireRole(...workerRoles),
+  validateBody(updateMaintenanceStatusSchema),
+  async (request, response, next) => {
+    try {
+      const { taskId } = request.params;
+
+      if (typeof taskId !== "string") {
+        response.status(400).json({ error: "Validation Error", message: "Task id is required." });
+        return;
+      }
+
+      response.json(await updateMaintenanceTaskStatus(taskId, request.body, request.user!.id));
+    } catch (error) {
+      next(error);
+    }
+  }
+);

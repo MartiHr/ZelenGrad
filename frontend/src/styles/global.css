@@ -367,6 +367,87 @@ code {
   opacity: 0.55;
 }
 
+.task-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.task-card {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid #d9e2dc;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 1rem;
+}
+
+.task-card header {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.task-card h2 {
+  margin: 0;
+  color: #173f2d;
+  font-size: 1.25rem;
+  letter-spacing: 0;
+}
+
+.task-card dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.task-card dt {
+  color: #60756c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.task-card dd {
+  margin: 0;
+}
+
+.completion-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);
+  gap: 1rem;
+}
+
+.completion-fields label {
+  display: grid;
+  gap: 0.35rem;
+  color: #33483f;
+  font-weight: 700;
+}
+
+.completion-fields textarea,
+.completion-fields select {
+  width: 100%;
+  border: 1px solid #c9d6cf;
+  border-radius: 6px;
+  padding: 0.7rem 0.8rem;
+  color: #20312a;
+  background: #ffffff;
+  font: inherit;
+}
+
+.completion-fields textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+@media (max-width: 720px) {
+  .completion-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 820px) {
   .topbar {
     grid-template-columns: 1fr;
