@@ -71,6 +71,18 @@ type StaffUser = {
   role: string;
 };
 
+type AssetFormState = {
+  type: string;
+  commonName: string;
+  species: string;
+  description: string;
+  latitude: string;
+  longitude: string;
+  plantedAt: string;
+  healthStatus: string;
+  lifecycleStatus: string;
+};
+
 const incidentTypes = [
   "DRY_TREE",
   "VANDALISM",
@@ -82,6 +94,9 @@ const incidentTypes = [
 
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 const maintenanceTypes = ["WATERING", "PRUNING", "INSPECTION", "TREATMENT", "CLEANUP", "REMOVAL", "OTHER"];
+const assetTypes = ["TREE", "PARK", "SHRUB", "GARDEN"];
+const assetHealthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED", "REMOVED"];
+const assetLifecycleStatuses = ["ACTIVE", "UNDER_MAINTENANCE", "ARCHIVED"];
 
 const formatDate = (value: string | null) => {
   if (!value) {
@@ -93,6 +108,26 @@ const formatDate = (value: string | null) => {
     timeStyle: "short"
   }).format(new Date(value));
 };
+
+const formatDateInput = (value: string | null) => {
+  if (!value) {
+    return "";
+  }
+
+  return value.slice(0, 10);
+};
+
+const createAssetFormState = (asset: Asset): AssetFormState => ({
+  type: asset.type,
+  commonName: asset.commonName ?? "",
+  species: asset.species,
+  description: asset.description ?? "",
+  latitude: asset.latitude,
+  longitude: asset.longitude,
+  plantedAt: formatDateInput(asset.plantedAt),
+  healthStatus: asset.healthStatus,
+  lifecycleStatus: asset.lifecycleStatus
+});
 
 export const AssetDetailsPage = () => {
   const { assetId } = useParams();
@@ -123,6 +158,11 @@ export const AssetDetailsPage = () => {
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
   const [createdMaintenanceTask, setCreatedMaintenanceTask] = useState<MaintenanceTask | null>(null);
   const [isSchedulingMaintenance, setIsSchedulingMaintenance] = useState(false);
+  const [assetForm, setAssetForm] = useState<AssetFormState | null>(null);
+  const [assetUpdateError, setAssetUpdateError] = useState<string | null>(null);
+  const [assetUpdateSuccess, setAssetUpdateSuccess] = useState<string | null>(null);
+  const [isUpdatingAsset, setIsUpdatingAsset] = useState(false);
+  const [isArchivingAsset, setIsArchivingAsset] = useState(false);
 
   useEffect(() => {
     if (!assetId) {
@@ -140,6 +180,7 @@ export const AssetDetailsPage = () => {
     ])
       .then(([assetResponse, historyResponse]) => {
         setAsset(assetResponse);
+        setAssetForm(createAssetFormState(assetResponse));
         setHistory(historyResponse);
       })
       .catch((caughtError) => {
@@ -295,6 +336,82 @@ export const AssetDetailsPage = () => {
     }
   };
 
+  const updateAssetForm = (patch: Partial<AssetFormState>) => {
+    setAssetForm((current) => (current ? { ...current, ...patch } : current));
+  };
+
+  const updateAssetRegistry = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!token || !assetForm) {
+      setAssetUpdateError("Please log in before updating this asset.");
+      return;
+    }
+
+    setIsUpdatingAsset(true);
+    setAssetUpdateError(null);
+    setAssetUpdateSuccess(null);
+
+    try {
+      const updatedAsset = await apiRequest<Asset>(`/assets/${asset.id}`, {
+        method: "PUT",
+        token,
+        body: {
+          type: assetForm.type,
+          commonName: assetForm.commonName.trim() || undefined,
+          species: assetForm.species,
+          description: assetForm.description.trim() || undefined,
+          latitude: assetForm.latitude,
+          longitude: assetForm.longitude,
+          plantedAt: assetForm.plantedAt || undefined,
+          healthStatus: assetForm.healthStatus,
+          lifecycleStatus: assetForm.lifecycleStatus,
+          zoneId: asset.zone?.id
+        }
+      });
+
+      setAsset(updatedAsset);
+      setAssetForm(createAssetFormState(updatedAsset));
+      setAssetUpdateSuccess("Asset registry updated.");
+    } catch (caughtError) {
+      setAssetUpdateError(caughtError instanceof ApiError ? caughtError.message : "Could not update asset.");
+    } finally {
+      setIsUpdatingAsset(false);
+    }
+  };
+
+  const archiveAsset = async () => {
+    if (!token) {
+      setAssetUpdateError("Please log in before archiving this asset.");
+      return;
+    }
+
+    const shouldArchive = window.confirm("Archive this asset? It will no longer appear on the public green map.");
+
+    if (!shouldArchive) {
+      return;
+    }
+
+    setIsArchivingAsset(true);
+    setAssetUpdateError(null);
+    setAssetUpdateSuccess(null);
+
+    try {
+      const archivedAsset = await apiRequest<Asset>(`/assets/${asset.id}`, {
+        method: "DELETE",
+        token
+      });
+
+      setAsset(archivedAsset);
+      setAssetForm(createAssetFormState(archivedAsset));
+      setAssetUpdateSuccess("Asset archived.");
+    } catch (caughtError) {
+      setAssetUpdateError(caughtError instanceof ApiError ? caughtError.message : "Could not archive asset.");
+    } finally {
+      setIsArchivingAsset(false);
+    }
+  };
+
   return (
     <section className="page">
       <div className="details-header">
@@ -342,6 +459,117 @@ export const AssetDetailsPage = () => {
             </div>
           </dl>
         </article>
+
+        {isAuthenticated && hasRole("EMPLOYEE", "MANAGER", "ADMIN") && assetForm ? (
+          <article className="panel details-panel">
+            <h2>Registry Editor</h2>
+            <form className="inline-form asset-form" onSubmit={(event) => void updateAssetRegistry(event)}>
+              <div className="form-grid">
+                <label>
+                  Type
+                  <select value={assetForm.type} onChange={(event) => updateAssetForm({ type: event.target.value })}>
+                    {assetTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Health
+                  <select
+                    value={assetForm.healthStatus}
+                    onChange={(event) => updateAssetForm({ healthStatus: event.target.value })}
+                  >
+                    {assetHealthStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Lifecycle
+                  <select
+                    value={assetForm.lifecycleStatus}
+                    onChange={(event) => updateAssetForm({ lifecycleStatus: event.target.value })}
+                  >
+                    {assetLifecycleStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Common name
+                  <input
+                    value={assetForm.commonName}
+                    onChange={(event) => updateAssetForm({ commonName: event.target.value })}
+                    maxLength={120}
+                  />
+                </label>
+                <label>
+                  Species
+                  <input
+                    value={assetForm.species}
+                    onChange={(event) => updateAssetForm({ species: event.target.value })}
+                    maxLength={160}
+                    required
+                  />
+                </label>
+                <label>
+                  Latitude
+                  <input
+                    value={assetForm.latitude}
+                    onChange={(event) => updateAssetForm({ latitude: event.target.value })}
+                    required
+                    step="0.000001"
+                    type="number"
+                  />
+                </label>
+                <label>
+                  Longitude
+                  <input
+                    value={assetForm.longitude}
+                    onChange={(event) => updateAssetForm({ longitude: event.target.value })}
+                    required
+                    step="0.000001"
+                    type="number"
+                  />
+                </label>
+                <label>
+                  Planted
+                  <input
+                    type="date"
+                    value={assetForm.plantedAt}
+                    onChange={(event) => updateAssetForm({ plantedAt: event.target.value })}
+                  />
+                </label>
+              </div>
+              <label>
+                Description
+                <textarea
+                  value={assetForm.description}
+                  onChange={(event) => updateAssetForm({ description: event.target.value })}
+                  maxLength={1000}
+                />
+              </label>
+
+              {assetUpdateError ? <p className="form-error">{assetUpdateError}</p> : null}
+              {assetUpdateSuccess ? <p className="form-success">{assetUpdateSuccess}</p> : null}
+
+              <div className="button-row">
+                <button type="submit" disabled={isUpdatingAsset}>
+                  {isUpdatingAsset ? "Saving..." : "Save Registry"}
+                </button>
+                <button className="danger-button" type="button" disabled={isArchivingAsset} onClick={() => void archiveAsset()}>
+                  {isArchivingAsset ? "Archiving..." : "Archive Asset"}
+                </button>
+              </div>
+            </form>
+          </article>
+        ) : null}
 
         <article className="panel details-panel">
           <h2>Actions</h2>

@@ -422,6 +422,16 @@ code {
   opacity: 0.55;
 }
 
+.button-row .danger-button {
+  border-color: #d8b4b4;
+  color: #9d2c2c;
+}
+
+.button-row .danger-button:hover:not(:disabled) {
+  border-color: #9d2c2c;
+  color: #9d2c2c;
+}
+
 .task-list {
   display: grid;
   gap: 1rem;
