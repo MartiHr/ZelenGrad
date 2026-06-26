@@ -25,6 +25,7 @@ type Adoption = {
   _count: {
     careLogs: number;
   };
+  careLogs: CareLog[];
 };
 
 type CareLog = {
@@ -131,7 +132,11 @@ export const MyForestPage = () => {
       setAdoptions((current) =>
         current.map((adoption) =>
           adoption.id === adoptionId
-            ? { ...adoption, _count: { careLogs: adoption._count.careLogs + 1 } }
+            ? {
+                ...adoption,
+                careLogs: [careLog, ...adoption.careLogs],
+                _count: { careLogs: adoption._count.careLogs + 1 }
+              }
             : adoption
         )
       );
@@ -234,6 +239,29 @@ export const MyForestPage = () => {
                 {form.isSubmitting ? "Logging..." : "Log Care"}
               </button>
             </form>
+            <section className="care-history">
+              <h3>Care History</h3>
+              {adoption.careLogs.length === 0 ? <p>No care logs have been submitted yet.</p> : null}
+              {adoption.careLogs.length ? (
+                <ul className="timeline">
+                  {adoption.careLogs.map((careLog) => (
+                    <li key={careLog.id}>
+                      <strong>{formatDate(careLog.loggedAt)}</strong>
+                      <p>{careLog.notes ?? "No notes were added."}</p>
+                      {careLog.photoUrls.length ? (
+                        <div className="photo-links">
+                          {careLog.photoUrls.map((photoUrl) => (
+                            <a href={photoUrl} key={photoUrl} rel="noreferrer" target="_blank">
+                              Photo
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
           </article>
           );
         })}

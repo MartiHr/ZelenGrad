@@ -32,6 +32,11 @@ const adoptionInclude = {
       email: true
     }
   },
+  careLogs: {
+    orderBy: {
+      loggedAt: "desc"
+    }
+  },
   _count: {
     select: {
       careLogs: true
