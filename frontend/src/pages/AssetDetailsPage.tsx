@@ -274,6 +274,7 @@ export const AssetDetailsPage = () => {
       setReportTitle("");
       setReportDescription("");
       setReportPriority("MEDIUM");
+      await refreshUser();
     } catch (caughtError) {
       setReportError(caughtError instanceof ApiError ? caughtError.message : "Could not submit incident report.");
     } finally {

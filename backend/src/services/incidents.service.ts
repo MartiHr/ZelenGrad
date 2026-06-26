@@ -1,4 +1,4 @@
-import { IncidentStatus, type Prisma } from "@prisma/client";
+import { IncidentStatus, RewardReason, type Prisma } from "@prisma/client";
 
 import { prisma } from "../lib/prisma.js";
 import { sseHub } from "../realtime/sseHub.js";
@@ -8,6 +8,9 @@ import type {
   UpdateIncidentInput
 } from "../validators/incidents.schemas.js";
 import { AppError } from "./users.service.js";
+
+const incidentReportedPoints = 2;
+const incidentVerifiedPoints = 8;
 
 const incidentInclude = {
   reporter: {
@@ -67,12 +70,30 @@ export const getIncidentById = async (incidentId: string) => {
 };
 
 export const createIncident = async (input: CreateIncidentInput, reporterId: string) => {
-  const incident = await prisma.incidentReport.create({
-    data: {
-      ...input,
-      reporterId
-    },
-    include: incidentInclude
+  const incident = await prisma.$transaction(async (transaction) => {
+    const createdIncident = await transaction.incidentReport.create({
+      data: {
+        ...input,
+        reporterId
+      },
+      include: incidentInclude
+    });
+
+    await transaction.user.update({
+      where: { id: reporterId },
+      data: { greenPoints: { increment: incidentReportedPoints } }
+    });
+
+    await transaction.rewardTransaction.create({
+      data: {
+        userId: reporterId,
+        points: incidentReportedPoints,
+        reason: RewardReason.INCIDENT_REPORTED,
+        description: `Reported incident ${createdIncident.title}.`
+      }
+    });
+
+    return createdIncident;
   });
 
   sseHub.broadcast("incident.created", {
@@ -87,22 +108,45 @@ export const createIncident = async (input: CreateIncidentInput, reporterId: str
 };
 
 export const updateIncident = async (incidentId: string, input: UpdateIncidentInput, verifierId: string) => {
-  await getIncidentById(incidentId);
+  const existingIncident = await getIncidentById(incidentId);
 
   const shouldMarkVerified =
     input.status === IncidentStatus.VERIFIED ||
     input.status === IncidentStatus.IN_PROGRESS ||
     input.status === IncidentStatus.RESOLVED;
+  const shouldAwardVerification = shouldMarkVerified && !existingIncident.verifiedAt && Boolean(existingIncident.reporterId);
 
-  const incident = await prisma.incidentReport.update({
-    where: { id: incidentId },
-    data: {
-      ...input,
-      verifiedById: shouldMarkVerified ? verifierId : undefined,
-      verifiedAt: shouldMarkVerified ? new Date() : undefined,
-      resolvedAt: input.status === IncidentStatus.RESOLVED ? new Date() : undefined
-    },
-    include: incidentInclude
+  const incident = await prisma.$transaction(async (transaction) => {
+    const updatedIncident = await transaction.incidentReport.update({
+      where: { id: incidentId },
+      data: {
+        ...input,
+        verifiedById: shouldMarkVerified ? verifierId : undefined,
+        verifiedAt: shouldMarkVerified ? new Date() : undefined,
+        resolvedAt: input.status === IncidentStatus.RESOLVED ? new Date() : undefined
+      },
+      include: incidentInclude
+    });
+
+    if (shouldAwardVerification) {
+      const reporterId = existingIncident.reporterId!;
+
+      await transaction.user.update({
+        where: { id: reporterId },
+        data: { greenPoints: { increment: incidentVerifiedPoints } }
+      });
+
+      await transaction.rewardTransaction.create({
+        data: {
+          userId: reporterId,
+          points: incidentVerifiedPoints,
+          reason: RewardReason.INCIDENT_VERIFIED,
+          description: `Incident verified: ${updatedIncident.title}.`
+        }
+      });
+    }
+
+    return updatedIncident;
   });
 
   sseHub.broadcast("incident.updated", {
