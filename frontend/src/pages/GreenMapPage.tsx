@@ -20,6 +20,11 @@ type GreenAsset = {
   zone: { id: string; name: string } | null;
 };
 
+type Zone = {
+  id: string;
+  name: string;
+};
+
 type MapBoundsProps = {
   assets: GreenAsset[];
 };
@@ -90,8 +95,10 @@ export const GreenMapPage = () => {
   const [assets, setAssets] = useState<GreenAsset[]>([]);
   const [healthStatus, setHealthStatus] = useState("");
   const [species, setSpecies] = useState("");
+  const [zoneId, setZoneId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [zones, setZones] = useState<Zone[]>([]);
   const [assetType, setAssetType] = useState("TREE");
   const [assetCommonName, setAssetCommonName] = useState("");
   const [assetSpecies, setAssetSpecies] = useState("");
@@ -100,6 +107,7 @@ export const GreenMapPage = () => {
   const [assetLongitude, setAssetLongitude] = useState("");
   const [assetHealthStatus, setAssetHealthStatus] = useState("HEALTHY");
   const [assetPlantedAt, setAssetPlantedAt] = useState("");
+  const [assetZoneId, setAssetZoneId] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   const [isCreatingAsset, setIsCreatingAsset] = useState(false);
@@ -115,9 +123,13 @@ export const GreenMapPage = () => {
       params.set("species", species.trim());
     }
 
+    if (zoneId) {
+      params.set("zoneId", zoneId);
+    }
+
     const value = params.toString();
     return value ? `?${value}` : "";
-  }, [healthStatus, species]);
+  }, [healthStatus, species, zoneId]);
 
   const loadAssets = async () => {
     setIsLoading(true);
@@ -135,6 +147,12 @@ export const GreenMapPage = () => {
   useEffect(() => {
     void loadAssets();
   }, [query]);
+
+  useEffect(() => {
+    apiRequest<Zone[]>("/zones")
+      .then(setZones)
+      .catch(() => setZones([]));
+  }, []);
 
   const canManageAssets = hasRole("EMPLOYEE", "MANAGER", "ADMIN");
 
@@ -162,7 +180,8 @@ export const GreenMapPage = () => {
           latitude: assetLatitude,
           longitude: assetLongitude,
           plantedAt: assetPlantedAt || undefined,
-          healthStatus: assetHealthStatus
+          healthStatus: assetHealthStatus,
+          zoneId: assetZoneId || undefined
         }
       });
 
@@ -173,6 +192,7 @@ export const GreenMapPage = () => {
       setAssetLatitude("");
       setAssetLongitude("");
       setAssetPlantedAt("");
+      setAssetZoneId("");
       setAssetType("TREE");
       setAssetHealthStatus("HEALTHY");
       await loadAssets();
@@ -202,6 +222,17 @@ export const GreenMapPage = () => {
             <option value="DRY">Dry</option>
             <option value="DISEASED">Diseased</option>
             <option value="DAMAGED">Damaged</option>
+          </select>
+        </label>
+        <label>
+          Zone
+          <select value={zoneId} onChange={(event) => setZoneId(event.target.value)}>
+            <option value="">All</option>
+            {zones.map((zone) => (
+              <option key={zone.id} value={zone.id}>
+                {zone.name}
+              </option>
+            ))}
           </select>
         </label>
       </div>
@@ -306,6 +337,17 @@ export const GreenMapPage = () => {
               <label>
                 Planted
                 <input type="date" value={assetPlantedAt} onChange={(event) => setAssetPlantedAt(event.target.value)} />
+              </label>
+              <label>
+                Zone
+                <select value={assetZoneId} onChange={(event) => setAssetZoneId(event.target.value)}>
+                  <option value="">Unassigned</option>
+                  {zones.map((zone) => (
+                    <option key={zone.id} value={zone.id}>
+                      {zone.name}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
             <label>

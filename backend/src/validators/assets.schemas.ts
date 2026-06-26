@@ -23,7 +23,9 @@ export const createAssetSchema = z.object({
   zoneId: z.string().trim().min(1).optional()
 });
 
-export const updateAssetSchema = createAssetSchema.partial();
+export const updateAssetSchema = createAssetSchema.partial().extend({
+  zoneId: z.string().trim().min(1).nullable().optional()
+});
 
 export type ListAssetsQuery = z.infer<typeof listAssetsQuerySchema>;
 export type CreateAssetInput = z.infer<typeof createAssetSchema>;

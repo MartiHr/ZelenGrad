@@ -71,6 +71,11 @@ type StaffUser = {
   role: string;
 };
 
+type Zone = {
+  id: string;
+  name: string;
+};
+
 type AssetFormState = {
   type: string;
   commonName: string;
@@ -81,6 +86,7 @@ type AssetFormState = {
   plantedAt: string;
   healthStatus: string;
   lifecycleStatus: string;
+  zoneId: string;
 };
 
 const incidentTypes = [
@@ -126,7 +132,8 @@ const createAssetFormState = (asset: Asset): AssetFormState => ({
   longitude: asset.longitude,
   plantedAt: formatDateInput(asset.plantedAt),
   healthStatus: asset.healthStatus,
-  lifecycleStatus: asset.lifecycleStatus
+  lifecycleStatus: asset.lifecycleStatus,
+  zoneId: asset.zone?.id ?? ""
 });
 
 export const AssetDetailsPage = () => {
@@ -154,6 +161,7 @@ export const AssetDetailsPage = () => {
   const [dueAt, setDueAt] = useState("");
   const [assignedToId, setAssignedToId] = useState("");
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
   const [staffError, setStaffError] = useState<string | null>(null);
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
   const [createdMaintenanceTask, setCreatedMaintenanceTask] = useState<MaintenanceTask | null>(null);
@@ -203,6 +211,17 @@ export const AssetDetailsPage = () => {
         setStaffError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
       });
   }, [hasRole, token]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setZones([]);
+      return;
+    }
+
+    apiRequest<Zone[]>("/zones")
+      .then(setZones)
+      .catch(() => setZones([]));
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -314,7 +333,7 @@ export const AssetDetailsPage = () => {
           scheduledFor: scheduledFor || undefined,
           dueAt: dueAt || undefined,
           assetId: asset.id,
-          zoneId: asset.zone?.id,
+          zoneId: assetForm?.zoneId || asset.zone?.id,
           assignedToId: assignedToId || undefined
         }
       });
@@ -366,7 +385,7 @@ export const AssetDetailsPage = () => {
           plantedAt: assetForm.plantedAt || undefined,
           healthStatus: assetForm.healthStatus,
           lifecycleStatus: assetForm.lifecycleStatus,
-          zoneId: asset.zone?.id
+          zoneId: assetForm.zoneId || null
         }
       });
 
@@ -545,6 +564,20 @@ export const AssetDetailsPage = () => {
                     value={assetForm.plantedAt}
                     onChange={(event) => updateAssetForm({ plantedAt: event.target.value })}
                   />
+                </label>
+                <label>
+                  Zone
+                  <select
+                    value={assetForm.zoneId}
+                    onChange={(event) => updateAssetForm({ zoneId: event.target.value })}
+                  >
+                    <option value="">Unassigned</option>
+                    {zones.map((zone) => (
+                      <option key={zone.id} value={zone.id}>
+                        {zone.name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
               <label>
