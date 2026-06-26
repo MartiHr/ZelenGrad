@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
+import { useAuth } from "../auth/AuthContext";
 
 type Asset = {
   id: string;
@@ -36,6 +37,25 @@ type AssetHistory = {
   }>;
 };
 
+type CreatedIncident = {
+  id: string;
+  type: string;
+  priority: string;
+  title: string;
+  status: string;
+};
+
+const incidentTypes = [
+  "DRY_TREE",
+  "VANDALISM",
+  "DISEASE",
+  "FALLEN_BRANCH",
+  "WASTE",
+  "OTHER"
+];
+
+const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+
 const formatDate = (value: string | null) => {
   if (!value) {
     return "Not recorded";
@@ -49,10 +69,18 @@ const formatDate = (value: string | null) => {
 
 export const AssetDetailsPage = () => {
   const { assetId } = useParams();
+  const { isAuthenticated, token } = useAuth();
   const [asset, setAsset] = useState<Asset | null>(null);
   const [history, setHistory] = useState<AssetHistory | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [reportType, setReportType] = useState("DRY_TREE");
+  const [reportPriority, setReportPriority] = useState("MEDIUM");
+  const [reportTitle, setReportTitle] = useState("");
+  const [reportDescription, setReportDescription] = useState("");
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [createdIncident, setCreatedIncident] = useState<CreatedIncident | null>(null);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   useEffect(() => {
     if (!assetId) {
@@ -96,6 +124,45 @@ export const AssetDetailsPage = () => {
       </section>
     );
   }
+
+  const submitIncidentReport = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!token) {
+      setReportError("Please log in before reporting an incident.");
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    setReportError(null);
+    setCreatedIncident(null);
+
+    try {
+      const incident = await apiRequest<CreatedIncident>("/incidents", {
+        method: "POST",
+        token,
+        body: {
+          type: reportType,
+          priority: reportPriority,
+          title: reportTitle,
+          description: reportDescription,
+          assetId: asset.id,
+          zoneId: asset.zone?.id,
+          latitude: asset.latitude,
+          longitude: asset.longitude
+        }
+      });
+
+      setCreatedIncident(incident);
+      setReportTitle("");
+      setReportDescription("");
+      setReportPriority("MEDIUM");
+    } catch (caughtError) {
+      setReportError(caughtError instanceof ApiError ? caughtError.message : "Could not submit incident report.");
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
 
   return (
     <section className="page">
@@ -148,9 +215,74 @@ export const AssetDetailsPage = () => {
         <article className="panel details-panel">
           <h2>Actions</h2>
           <div className="action-stack">
-            <button type="button" disabled>
-              Report Incident
-            </button>
+            {isAuthenticated ? (
+              <form className="inline-form" onSubmit={(event) => void submitIncidentReport(event)}>
+                <label>
+                  Incident type
+                  <select value={reportType} onChange={(event) => setReportType(event.target.value)}>
+                    {incidentTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Priority
+                  <select value={reportPriority} onChange={(event) => setReportPriority(event.target.value)}>
+                    {priorities.map((priority) => (
+                      <option key={priority} value={priority}>
+                        {priority}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Title
+                  <input
+                    value={reportTitle}
+                    onChange={(event) => setReportTitle(event.target.value)}
+                    minLength={3}
+                    maxLength={160}
+                    required
+                    placeholder="Dry branches near sidewalk"
+                  />
+                </label>
+
+                <label>
+                  Description
+                  <textarea
+                    value={reportDescription}
+                    onChange={(event) => setReportDescription(event.target.value)}
+                    minLength={10}
+                    maxLength={2000}
+                    required
+                    placeholder="Describe what you noticed and where it is visible."
+                  />
+                </label>
+
+                {reportError ? <p className="form-error">{reportError}</p> : null}
+                {createdIncident ? (
+                  <p className="form-success">
+                    Incident {createdIncident.status.toLowerCase()} as {createdIncident.title}.
+                  </p>
+                ) : null}
+
+                <button type="submit" disabled={isSubmittingReport}>
+                  {isSubmittingReport ? "Submitting..." : "Report Incident"}
+                </button>
+              </form>
+            ) : (
+              <div className="auth-prompt">
+                <p>Log in as a citizen to report damage, disease, waste, or other issues for this asset.</p>
+                <div className="button-row">
+                  <Link to="/login">Log in</Link>
+                  <Link to="/register">Create account</Link>
+                </div>
+              </div>
+            )}
             <button type="button" disabled>
               Adopt Tree
             </button>

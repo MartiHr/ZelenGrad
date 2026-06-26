@@ -560,6 +560,66 @@ code {
   font-weight: 700;
 }
 
+.inline-form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.inline-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: #33483f;
+  font-weight: 700;
+}
+
+.inline-form input,
+.inline-form select,
+.inline-form textarea {
+  width: 100%;
+  border: 1px solid #c9d6cf;
+  border-radius: 6px;
+  padding: 0.7rem 0.8rem;
+  color: #20312a;
+  background: #ffffff;
+  font: inherit;
+}
+
+.inline-form textarea {
+  min-height: 108px;
+  resize: vertical;
+}
+
+.action-stack .inline-form button {
+  width: fit-content;
+  border: 0;
+  color: #ffffff;
+  background: #12633f;
+  cursor: pointer;
+}
+
+.action-stack .inline-form button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.form-success {
+  color: #12633f;
+  font-weight: 800;
+}
+
+.auth-prompt {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.auth-prompt .button-row a {
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  color: #ffffff;
+  background: #12633f;
+  font-weight: 800;
+}
+
 .timeline {
   display: grid;
   gap: 0.8rem;
