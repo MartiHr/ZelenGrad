@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import L from "leaflet";
+import { Link } from "react-router";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 
 import { ApiError, apiRequest } from "../api";
 
@@ -13,6 +17,55 @@ type GreenAsset = {
   healthStatus: string;
   lifecycleStatus: string;
   zone: { id: string; name: string } | null;
+};
+
+type MapBoundsProps = {
+  assets: GreenAsset[];
+};
+
+const healthColors: Record<string, string> = {
+  HEALTHY: "#12633f",
+  NEEDS_ATTENTION: "#b7791f",
+  DRY: "#9d2c2c",
+  DISEASED: "#7c3aed",
+  DAMAGED: "#c2410c",
+  REMOVED: "#60756c"
+};
+
+const defaultCenter: [number, number] = [42.6977, 23.3219];
+
+const getCoordinates = (asset: GreenAsset): [number, number] => [Number(asset.latitude), Number(asset.longitude)];
+
+const getMarkerIcon = (healthStatus: string) => {
+  const color = healthColors[healthStatus] ?? "#12633f";
+
+  return L.divIcon({
+    className: "asset-marker",
+    html: `<span style="background:${color}"></span>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    popupAnchor: [0, -12]
+  });
+};
+
+const MapBounds = ({ assets }: MapBoundsProps) => {
+  const map = useMap();
+
+  useEffect(() => {
+    const validAssets = assets.filter(
+      (asset) => Number.isFinite(Number(asset.latitude)) && Number.isFinite(Number(asset.longitude))
+    );
+
+    if (validAssets.length === 0) {
+      map.setView(defaultCenter, 12);
+      return;
+    }
+
+    const bounds = L.latLngBounds(validAssets.map(getCoordinates));
+    map.fitBounds(bounds, { padding: [36, 36], maxZoom: 15 });
+  }, [assets, map]);
+
+  return null;
 };
 
 export const GreenMapPage = () => {
@@ -73,6 +126,29 @@ export const GreenMapPage = () => {
       </div>
 
       {error ? <p className="form-error">{error}</p> : null}
+
+      <div className="map-panel">
+        <MapContainer center={defaultCenter} zoom={12} scrollWheelZoom className="green-map">
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <MapBounds assets={assets} />
+          {assets.map((asset) => (
+            <Marker key={asset.id} position={getCoordinates(asset)} icon={getMarkerIcon(asset.healthStatus)}>
+              <Popup>
+                <div className="map-popup">
+                  <strong>{asset.commonName ?? asset.species}</strong>
+                  <span>{asset.species}</span>
+                  <span>{asset.healthStatus}</span>
+                  <span>{asset.zone?.name ?? "Unassigned zone"}</span>
+                  <Link to={`/assets/${asset.id}`}>Open details</Link>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
 
       <div className="asset-grid">
         {isLoading ? <p>Loading assets...</p> : null}
