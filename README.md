@@ -52,6 +52,19 @@ Services:
 - SSE stream: http://localhost:3000/api/events
 - PostgreSQL: localhost:5432
 
+Seed development data:
+
+```bash
+npm run prisma:seed
+```
+
+Seeded users all use `password123`:
+
+- `admin@zelengrad.test`
+- `manager@zelengrad.test`
+- `employee@zelengrad.test`
+- `citizen@zelengrad.test`
+
 ## Domain Foundation
 
 The initial architecture follows the course brief roles and views:

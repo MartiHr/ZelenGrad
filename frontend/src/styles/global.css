@@ -164,7 +164,9 @@ code {
   font-weight: 700;
 }
 
-.form input {
+.form input,
+.toolbar input,
+.toolbar select {
   width: 100%;
   border: 1px solid #c9d6cf;
   border-radius: 6px;
@@ -215,6 +217,65 @@ code {
 }
 
 .profile-summary dd {
+  margin: 0;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+}
+
+.toolbar label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: min(260px, 100%);
+  color: #33483f;
+  font-weight: 700;
+}
+
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.asset-card {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid #d9e2dc;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 1rem;
+}
+
+.asset-card h2 {
+  margin: 0;
+  color: #173f2d;
+  font-size: 1.25rem;
+  letter-spacing: 0;
+}
+
+.asset-card dl {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.asset-card div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.asset-card dt {
+  color: #60756c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.asset-card dd {
   margin: 0;
 }
 

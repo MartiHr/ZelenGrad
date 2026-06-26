@@ -14,7 +14,8 @@
     "backend:dev": "npm run dev --workspace backend",
     "frontend:dev": "npm run dev --workspace frontend",
     "prisma:generate": "npm run prisma:generate --workspace backend",
-    "prisma:migrate": "npm run prisma:migrate --workspace backend"
+    "prisma:migrate": "npm run prisma:migrate --workspace backend",
+    "prisma:seed": "npm run prisma:seed --workspace backend"
   },
   "engines": {
     "node": ">=20"
