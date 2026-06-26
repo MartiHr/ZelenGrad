@@ -64,6 +64,13 @@ type MaintenanceTask = {
   priority: string;
 };
 
+type StaffUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+};
+
 const incidentTypes = [
   "DRY_TREE",
   "VANDALISM",
@@ -110,6 +117,9 @@ export const AssetDetailsPage = () => {
   const [maintenanceDescription, setMaintenanceDescription] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
   const [dueAt, setDueAt] = useState("");
+  const [assignedToId, setAssignedToId] = useState("");
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
+  const [staffError, setStaffError] = useState<string | null>(null);
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
   const [createdMaintenanceTask, setCreatedMaintenanceTask] = useState<MaintenanceTask | null>(null);
   const [isSchedulingMaintenance, setIsSchedulingMaintenance] = useState(false);
@@ -137,6 +147,21 @@ export const AssetDetailsPage = () => {
       })
       .finally(() => setIsLoading(false));
   }, [assetId]);
+
+  useEffect(() => {
+    if (!token || !hasRole("MANAGER", "ADMIN")) {
+      setStaffUsers([]);
+      return;
+    }
+
+    setStaffError(null);
+
+    apiRequest<StaffUser[]>("/users/staff", { token })
+      .then(setStaffUsers)
+      .catch((caughtError) => {
+        setStaffError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
+      });
+  }, [hasRole, token]);
 
   if (isLoading) {
     return (
@@ -248,7 +273,8 @@ export const AssetDetailsPage = () => {
           scheduledFor: scheduledFor || undefined,
           dueAt: dueAt || undefined,
           assetId: asset.id,
-          zoneId: asset.zone?.id
+          zoneId: asset.zone?.id,
+          assignedToId: assignedToId || undefined
         }
       });
 
@@ -257,6 +283,7 @@ export const AssetDetailsPage = () => {
       setMaintenanceDescription("");
       setScheduledFor("");
       setDueAt("");
+      setAssignedToId("");
       setMaintenanceType("INSPECTION");
       setMaintenancePriority("MEDIUM");
     } catch (caughtError) {
@@ -468,6 +495,19 @@ export const AssetDetailsPage = () => {
                   <input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
                 </label>
 
+                <label>
+                  Assignee
+                  <select value={assignedToId} onChange={(event) => setAssignedToId(event.target.value)}>
+                    <option value="">Unassigned</option>
+                    {staffUsers.map((staffUser) => (
+                      <option key={staffUser.id} value={staffUser.id}>
+                        {staffUser.name} ({staffUser.role})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {staffError ? <p className="form-error">{staffError}</p> : null}
                 {maintenanceError ? <p className="form-error">{maintenanceError}</p> : null}
                 {createdMaintenanceTask ? (
                   <p className="form-success">

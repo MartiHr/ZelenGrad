@@ -110,6 +110,19 @@ export const listUsers = async (query: { email?: string; role?: UserRole; isActi
   });
 };
 
+export const listStaffUsers = async () => {
+  return prisma.user.findMany({
+    where: {
+      isActive: true,
+      role: {
+        in: [UserRole.EMPLOYEE, UserRole.MANAGER, UserRole.ADMIN]
+      }
+    },
+    orderBy: [{ role: "asc" }, { name: "asc" }],
+    select: publicUserSelect
+  });
+};
+
 export const updateCurrentUser = async (userId: string, input: UpdateCurrentUserInput) => {
   const data: Prisma.UserUpdateInput = {
     email: input.email,

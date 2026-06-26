@@ -6,6 +6,7 @@ import { validateBody } from "../middleware/validate.js";
 import {
   deactivateUser,
   getUserById,
+  listStaffUsers,
   listUsers,
   registerCitizen,
   updateCurrentUser,
@@ -46,6 +47,14 @@ usersRouter.get("/", requireAuth, requireRole(UserRole.ADMIN), async (request, r
     const email = typeof request.query.email === "string" ? request.query.email : undefined;
 
     response.json(await listUsers({ email, role, isActive }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+usersRouter.get("/staff", requireAuth, requireRole(UserRole.MANAGER, UserRole.ADMIN), async (_request, response, next) => {
+  try {
+    response.json(await listStaffUsers());
   } catch (error) {
     next(error);
   }
