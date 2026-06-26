@@ -56,6 +56,14 @@ type Adoption = {
   };
 };
 
+type MaintenanceTask = {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  priority: string;
+};
+
 const incidentTypes = [
   "DRY_TREE",
   "VANDALISM",
@@ -66,6 +74,7 @@ const incidentTypes = [
 ];
 
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+const maintenanceTypes = ["WATERING", "PRUNING", "INSPECTION", "TREATMENT", "CLEANUP", "REMOVAL", "OTHER"];
 
 const formatDate = (value: string | null) => {
   if (!value) {
@@ -95,6 +104,15 @@ export const AssetDetailsPage = () => {
   const [adoptionError, setAdoptionError] = useState<string | null>(null);
   const [createdAdoption, setCreatedAdoption] = useState<Adoption | null>(null);
   const [isAdopting, setIsAdopting] = useState(false);
+  const [maintenanceType, setMaintenanceType] = useState("INSPECTION");
+  const [maintenancePriority, setMaintenancePriority] = useState("MEDIUM");
+  const [maintenanceTitle, setMaintenanceTitle] = useState("");
+  const [maintenanceDescription, setMaintenanceDescription] = useState("");
+  const [scheduledFor, setScheduledFor] = useState("");
+  const [dueAt, setDueAt] = useState("");
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
+  const [createdMaintenanceTask, setCreatedMaintenanceTask] = useState<MaintenanceTask | null>(null);
+  const [isSchedulingMaintenance, setIsSchedulingMaintenance] = useState(false);
 
   useEffect(() => {
     if (!assetId) {
@@ -203,6 +221,50 @@ export const AssetDetailsPage = () => {
       setAdoptionError(caughtError instanceof ApiError ? caughtError.message : "Could not adopt this tree.");
     } finally {
       setIsAdopting(false);
+    }
+  };
+
+  const scheduleMaintenance = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!token) {
+      setMaintenanceError("Please log in before scheduling maintenance.");
+      return;
+    }
+
+    setIsSchedulingMaintenance(true);
+    setMaintenanceError(null);
+    setCreatedMaintenanceTask(null);
+
+    try {
+      const task = await apiRequest<MaintenanceTask>("/maintenance", {
+        method: "POST",
+        token,
+        body: {
+          title: maintenanceTitle,
+          description: maintenanceDescription.trim() || undefined,
+          type: maintenanceType,
+          priority: maintenancePriority,
+          scheduledFor: scheduledFor || undefined,
+          dueAt: dueAt || undefined,
+          assetId: asset.id,
+          zoneId: asset.zone?.id
+        }
+      });
+
+      setCreatedMaintenanceTask(task);
+      setMaintenanceTitle("");
+      setMaintenanceDescription("");
+      setScheduledFor("");
+      setDueAt("");
+      setMaintenanceType("INSPECTION");
+      setMaintenancePriority("MEDIUM");
+    } catch (caughtError) {
+      setMaintenanceError(
+        caughtError instanceof ApiError ? caughtError.message : "Could not schedule maintenance task."
+      );
+    } finally {
+      setIsSchedulingMaintenance(false);
     }
   };
 
@@ -343,9 +405,86 @@ export const AssetDetailsPage = () => {
                 Adopt Tree
               </button>
             )}
-            <button type="button" disabled>
-              Schedule Maintenance
-            </button>
+            {isAuthenticated && hasRole("MANAGER", "ADMIN") ? (
+              <form className="inline-form" onSubmit={(event) => void scheduleMaintenance(event)}>
+                <label>
+                  Task type
+                  <select value={maintenanceType} onChange={(event) => setMaintenanceType(event.target.value)}>
+                    {maintenanceTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Priority
+                  <select
+                    value={maintenancePriority}
+                    onChange={(event) => setMaintenancePriority(event.target.value)}
+                  >
+                    {priorities.map((priority) => (
+                      <option key={priority} value={priority}>
+                        {priority}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Title
+                  <input
+                    value={maintenanceTitle}
+                    onChange={(event) => setMaintenanceTitle(event.target.value)}
+                    minLength={3}
+                    maxLength={160}
+                    required
+                    placeholder={`Inspect ${asset.commonName ?? asset.species}`}
+                  />
+                </label>
+
+                <label>
+                  Description
+                  <textarea
+                    value={maintenanceDescription}
+                    onChange={(event) => setMaintenanceDescription(event.target.value)}
+                    maxLength={1000}
+                    placeholder="Describe the planned work for the field team."
+                  />
+                </label>
+
+                <label>
+                  Scheduled for
+                  <input
+                    type="datetime-local"
+                    value={scheduledFor}
+                    onChange={(event) => setScheduledFor(event.target.value)}
+                  />
+                </label>
+
+                <label>
+                  Due at
+                  <input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
+                </label>
+
+                {maintenanceError ? <p className="form-error">{maintenanceError}</p> : null}
+                {createdMaintenanceTask ? (
+                  <p className="form-success">
+                    Created {createdMaintenanceTask.status.toLowerCase()} task {createdMaintenanceTask.title}. View it in{" "}
+                    <Link to="/worklist">Worklist</Link>.
+                  </p>
+                ) : null}
+
+                <button type="submit" disabled={isSchedulingMaintenance}>
+                  {isSchedulingMaintenance ? "Scheduling..." : "Schedule Maintenance"}
+                </button>
+              </form>
+            ) : (
+              <button type="button" disabled>
+                Schedule Maintenance
+              </button>
+            )}
           </div>
         </article>
       </div>

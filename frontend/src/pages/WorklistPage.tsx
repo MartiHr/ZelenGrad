@@ -20,6 +20,17 @@ type MaintenanceTask = {
 const statuses = ["ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED", "REMOVED"];
 
+const formatDateTime = (value: string | null) => {
+  if (!value) {
+    return "Not set";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(value));
+};
+
 export const WorklistPage = () => {
   const { token } = useAuth();
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
@@ -113,6 +124,14 @@ export const WorklistPage = () => {
               <div>
                 <dt>Assignee</dt>
                 <dd>{task.assignedTo?.name ?? "Unassigned"}</dd>
+              </div>
+              <div>
+                <dt>Scheduled</dt>
+                <dd>{formatDateTime(task.scheduledFor)}</dd>
+              </div>
+              <div>
+                <dt>Due</dt>
+                <dd>{formatDateTime(task.dueAt)}</dd>
               </div>
             </dl>
 
