@@ -13,14 +13,15 @@ import {
   updateAsset
 } from "../services/assets.service.js";
 import { createAssetSchema, listAssetsQuerySchema, updateAssetSchema } from "../validators/assets.schemas.js";
+import type { ListAssetsQuery } from "../validators/assets.schemas.js";
 
 export const assetsRouter = Router();
 
 const managerRoles = [UserRole.EMPLOYEE, UserRole.MANAGER, UserRole.ADMIN];
 
-assetsRouter.get("/", validateQuery(listAssetsQuerySchema), async (request, response, next) => {
+assetsRouter.get("/", validateQuery(listAssetsQuerySchema), async (_request, response, next) => {
   try {
-    response.json(await listAssets(request.query));
+    response.json(await listAssets(response.locals.validatedQuery as ListAssetsQuery));
   } catch (error) {
     next(error);
   }

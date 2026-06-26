@@ -14,6 +14,6 @@ export const validateQuery =
       return;
     }
 
-    request.query = result.data as Request["query"];
+    response.locals.validatedQuery = result.data;
     next();
   };
