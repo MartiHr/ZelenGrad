@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
@@ -135,6 +136,7 @@ export const IncidentReviewPage = () => {
               </div>
             </dl>
             <div className="button-row">
+              <Link to={`/incidents/${incident.id}`}>Open details</Link>
               {statuses.map((statusOption) => (
                 <button
                   key={statusOption}

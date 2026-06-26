@@ -8,6 +8,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { GreenMapPage } from "./pages/GreenMapPage";
 import { HomePage } from "./pages/HomePage";
 import { IncidentReviewPage } from "./pages/IncidentReviewPage";
+import { IncidentDetailsPage } from "./pages/IncidentDetailsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MyForestPage } from "./pages/MyForestPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -80,6 +81,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
             <IncidentReviewPage />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "incidents/:incidentId",
+        element: (
+          <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
+            <IncidentDetailsPage />
           </ProtectedRoute>
         )
       },

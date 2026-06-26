@@ -4,7 +4,7 @@ import { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { validateQuery } from "../middleware/validateQuery.js";
-import { createIncident, listIncidents, updateIncident } from "../services/incidents.service.js";
+import { createIncident, getIncidentById, listIncidents, updateIncident } from "../services/incidents.service.js";
 import {
   createIncidentSchema,
   listIncidentsQuerySchema,
@@ -39,6 +39,26 @@ incidentsRouter.post(
   async (request, response, next) => {
     try {
       response.status(201).json(await createIncident(request.body, request.user!.id));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+incidentsRouter.get(
+  "/:incidentId",
+  requireAuth,
+  requireRole(...reviewerRoles),
+  async (request, response, next) => {
+    try {
+      const { incidentId } = request.params;
+
+      if (typeof incidentId !== "string") {
+        response.status(400).json({ error: "Validation Error", message: "Incident id is required." });
+        return;
+      }
+
+      response.json(await getIncidentById(incidentId));
     } catch (error) {
       next(error);
     }
