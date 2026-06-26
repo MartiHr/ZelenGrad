@@ -16,6 +16,14 @@ type ManagedUser = {
   updatedAt: string;
 };
 
+type RewardTransaction = {
+  id: string;
+  points: number;
+  reason: string;
+  description: string | null;
+  createdAt: string;
+};
+
 type UserFormState = {
   email: string;
   name: string;
@@ -26,6 +34,15 @@ type UserFormState = {
   success: string | null;
   isSaving: boolean;
   isDeactivating: boolean;
+};
+
+type RewardFormState = {
+  points: string;
+  description: string;
+  error: string | null;
+  success: string | null;
+  isLoading: boolean;
+  isAdjusting: boolean;
 };
 
 const roles: UserRole[] = ["CITIZEN", "EMPLOYEE", "MANAGER", "ADMIN"];
@@ -40,6 +57,15 @@ const createUserForm = (user: ManagedUser): UserFormState => ({
   success: null,
   isSaving: false,
   isDeactivating: false
+});
+
+const createRewardForm = (): RewardFormState => ({
+  points: "",
+  description: "",
+  error: null,
+  success: null,
+  isLoading: false,
+  isAdjusting: false
 });
 
 const formatDate = (value: string | null) => {
@@ -57,6 +83,8 @@ export const UsersPage = () => {
   const { token, user: currentUser } = useAuth();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [forms, setForms] = useState<Record<string, UserFormState>>({});
+  const [rewardForms, setRewardForms] = useState<Record<string, RewardFormState>>({});
+  const [rewardsByUser, setRewardsByUser] = useState<Record<string, RewardTransaction[]>>({});
   const [emailFilter, setEmailFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [activeFilter, setActiveFilter] = useState("");
@@ -118,6 +146,81 @@ export const UsersPage = () => {
         ...patch
       }
     }));
+  };
+
+  const updateRewardForm = (userId: string, patch: Partial<RewardFormState>) => {
+    setRewardForms((current) => ({
+      ...current,
+      [userId]: {
+        ...(current[userId] ?? createRewardForm()),
+        ...patch
+      }
+    }));
+  };
+
+  const loadRewards = async (managedUser: ManagedUser) => {
+    if (!token) {
+      updateRewardForm(managedUser.id, { error: "Please log in before loading rewards." });
+      return;
+    }
+
+    updateRewardForm(managedUser.id, { error: null, success: null, isLoading: true });
+
+    try {
+      const rewards = await apiRequest<RewardTransaction[]>(`/rewards?userId=${managedUser.id}`, { token });
+      setRewardsByUser((current) => ({ ...current, [managedUser.id]: rewards }));
+      updateRewardForm(managedUser.id, { isLoading: false });
+    } catch (caughtError) {
+      updateRewardForm(managedUser.id, {
+        error: caughtError instanceof ApiError ? caughtError.message : "Could not load reward history.",
+        isLoading: false
+      });
+    }
+  };
+
+  const adjustRewards = async (event: FormEvent<HTMLFormElement>, managedUser: ManagedUser) => {
+    event.preventDefault();
+
+    if (!token) {
+      updateRewardForm(managedUser.id, { error: "Please log in before adjusting rewards." });
+      return;
+    }
+
+    const form = rewardForms[managedUser.id] ?? createRewardForm();
+
+    updateRewardForm(managedUser.id, { error: null, success: null, isAdjusting: true });
+
+    try {
+      const reward = await apiRequest<RewardTransaction>(`/rewards/${managedUser.id}`, {
+        method: "PUT",
+        token,
+        body: {
+          points: form.points,
+          description: form.description
+        }
+      });
+
+      setRewardsByUser((current) => ({
+        ...current,
+        [managedUser.id]: [reward, ...(current[managedUser.id] ?? [])]
+      }));
+      setUsers((current) =>
+        current.map((user) =>
+          user.id === managedUser.id ? { ...user, greenPoints: user.greenPoints + reward.points } : user
+        )
+      );
+      updateRewardForm(managedUser.id, {
+        points: "",
+        description: "",
+        success: "Reward adjustment recorded.",
+        isAdjusting: false
+      });
+    } catch (caughtError) {
+      updateRewardForm(managedUser.id, {
+        error: caughtError instanceof ApiError ? caughtError.message : "Could not adjust rewards.",
+        isAdjusting: false
+      });
+    }
   };
 
   const saveUser = async (event: FormEvent<HTMLFormElement>, managedUser: ManagedUser) => {
@@ -239,6 +342,8 @@ export const UsersPage = () => {
         {!isLoading && users.length === 0 ? <p>No users match the current filters.</p> : null}
         {users.map((managedUser) => {
           const form = forms[managedUser.id] ?? createUserForm(managedUser);
+          const rewardForm = rewardForms[managedUser.id] ?? createRewardForm();
+          const rewards = rewardsByUser[managedUser.id];
           const isSelf = currentUser?.id === managedUser.id;
 
           return (
@@ -346,6 +451,70 @@ export const UsersPage = () => {
                   </button>
                 </div>
               </form>
+
+              <section className="reward-panel">
+                <div className="button-row">
+                  <button
+                    type="button"
+                    disabled={rewardForm.isLoading}
+                    onClick={() => void loadRewards(managedUser)}
+                  >
+                    {rewardForm.isLoading ? "Loading..." : "Load Rewards"}
+                  </button>
+                </div>
+
+                <form className="inline-form" onSubmit={(event) => void adjustRewards(event, managedUser)}>
+                  <div className="form-grid">
+                    <label>
+                      Point adjustment
+                      <input
+                        value={rewardForm.points}
+                        onChange={(event) => updateRewardForm(managedUser.id, { points: event.target.value })}
+                        placeholder="+5 or -3"
+                        required
+                        type="number"
+                      />
+                    </label>
+                    <label>
+                      Description
+                      <input
+                        value={rewardForm.description}
+                        onChange={(event) => updateRewardForm(managedUser.id, { description: event.target.value })}
+                        maxLength={1000}
+                        minLength={3}
+                        required
+                        placeholder="Manual correction"
+                      />
+                    </label>
+                  </div>
+                  {rewardForm.error ? <p className="form-error">{rewardForm.error}</p> : null}
+                  {rewardForm.success ? <p className="form-success">{rewardForm.success}</p> : null}
+                  <button type="submit" disabled={rewardForm.isAdjusting}>
+                    {rewardForm.isAdjusting ? "Recording..." : "Adjust Points"}
+                  </button>
+                </form>
+
+                {rewards ? (
+                  rewards.length ? (
+                    <ul className="timeline">
+                      {rewards.map((reward) => (
+                        <li key={reward.id}>
+                          <strong>
+                            {reward.points > 0 ? "+" : ""}
+                            {reward.points} points
+                          </strong>
+                          <span>
+                            {reward.reason} · {formatDate(reward.createdAt)}
+                          </span>
+                          <p>{reward.description ?? "No description was added."}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No reward transactions have been recorded for this user.</p>
+                  )
+                ) : null}
+              </section>
             </article>
           );
         })}

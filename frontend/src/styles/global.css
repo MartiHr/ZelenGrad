@@ -524,6 +524,13 @@ code {
   margin: 0;
 }
 
+.reward-panel {
+  display: grid;
+  gap: 1rem;
+  border-top: 1px solid #edf2ef;
+  padding-top: 1rem;
+}
+
 .completion-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);
