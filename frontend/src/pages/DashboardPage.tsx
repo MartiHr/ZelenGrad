@@ -14,6 +14,7 @@ export const DashboardPage = () => {
     const source = createDashboardEventSource();
     const eventTypes = [
       "connected",
+      "adoption.care_logged",
       "adoption.created",
       "incident.created",
       "incident.updated",

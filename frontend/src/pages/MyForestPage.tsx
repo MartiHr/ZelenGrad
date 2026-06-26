@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
@@ -27,6 +27,21 @@ type Adoption = {
   };
 };
 
+type CareLog = {
+  id: string;
+  notes: string | null;
+  photoUrls: string[];
+  loggedAt: string;
+};
+
+type CareFormState = {
+  notes: string;
+  photoUrl: string;
+  error: string | null;
+  success: string | null;
+  isSubmitting: boolean;
+};
+
 const formatDate = (value: string | null) => {
   if (!value) {
     return "Not recorded";
@@ -37,13 +52,22 @@ const formatDate = (value: string | null) => {
   }).format(new Date(value));
 };
 
+const createInitialCareForm = (): CareFormState => ({
+  notes: "",
+  photoUrl: "",
+  error: null,
+  success: null,
+  isSubmitting: false
+});
+
 export const MyForestPage = () => {
-  const { token, user } = useAuth();
+  const { refreshUser, token, user } = useAuth();
   const [adoptions, setAdoptions] = useState<Adoption[]>([]);
+  const [careForms, setCareForms] = useState<Record<string, CareFormState>>({});
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const loadAdoptions = async () => {
     if (!token) {
       return;
     }
@@ -51,13 +75,80 @@ export const MyForestPage = () => {
     setIsLoading(true);
     setError(null);
 
-    apiRequest<Adoption[]>("/adoptions/me", { token })
-      .then(setAdoptions)
-      .catch((caughtError) => {
-        setError(caughtError instanceof ApiError ? caughtError.message : "Could not load your forest.");
-      })
-      .finally(() => setIsLoading(false));
+    try {
+      const nextAdoptions = await apiRequest<Adoption[]>("/adoptions/me", { token });
+      setAdoptions(nextAdoptions);
+      setCareForms((current) =>
+        nextAdoptions.reduce<Record<string, CareFormState>>((forms, adoption) => {
+          forms[adoption.id] = current[adoption.id] ?? createInitialCareForm();
+          return forms;
+        }, {})
+      );
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiError ? caughtError.message : "Could not load your forest.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadAdoptions();
   }, [token]);
+
+  const updateCareForm = (adoptionId: string, patch: Partial<CareFormState>) => {
+    setCareForms((current) => ({
+      ...current,
+      [adoptionId]: {
+        ...(current[adoptionId] ?? createInitialCareForm()),
+        ...patch
+      }
+    }));
+  };
+
+  const submitCareLog = async (event: FormEvent<HTMLFormElement>, adoptionId: string) => {
+    event.preventDefault();
+
+    if (!token) {
+      updateCareForm(adoptionId, { error: "Please log in before logging care." });
+      return;
+    }
+
+    const form = careForms[adoptionId] ?? createInitialCareForm();
+    const photoUrl = form.photoUrl.trim();
+
+    updateCareForm(adoptionId, { error: null, success: null, isSubmitting: true });
+
+    try {
+      const careLog = await apiRequest<CareLog>(`/adoptions/${adoptionId}/care-logs`, {
+        method: "POST",
+        token,
+        body: {
+          notes: form.notes.trim() || undefined,
+          photoUrls: photoUrl ? [photoUrl] : []
+        }
+      });
+
+      setAdoptions((current) =>
+        current.map((adoption) =>
+          adoption.id === adoptionId
+            ? { ...adoption, _count: { careLogs: adoption._count.careLogs + 1 } }
+            : adoption
+        )
+      );
+      updateCareForm(adoptionId, {
+        notes: "",
+        photoUrl: "",
+        success: `Care logged on ${formatDate(careLog.loggedAt)}.`,
+        isSubmitting: false
+      });
+      await refreshUser();
+    } catch (caughtError) {
+      updateCareForm(adoptionId, {
+        error: caughtError instanceof ApiError ? caughtError.message : "Could not log care.",
+        isSubmitting: false
+      });
+    }
+  };
 
   return (
     <section className="page">
@@ -83,8 +174,11 @@ export const MyForestPage = () => {
           </article>
         ) : null}
 
-        {adoptions.map((adoption) => (
-          <article className="asset-card" key={adoption.id}>
+        {adoptions.map((adoption) => {
+          const form = careForms[adoption.id] ?? createInitialCareForm();
+
+          return (
+            <article className="asset-card" key={adoption.id}>
             <div>
               <p className="eyebrow">{adoption.status}</p>
               <h2>{adoption.asset.commonName ?? adoption.asset.species}</h2>
@@ -115,8 +209,34 @@ export const MyForestPage = () => {
             <div className="button-row">
               <Link to={`/assets/${adoption.asset.id}`}>Open details</Link>
             </div>
+            <form className="inline-form care-form" onSubmit={(event) => void submitCareLog(event, adoption.id)}>
+              <label>
+                Care notes
+                <textarea
+                  value={form.notes}
+                  onChange={(event) => updateCareForm(adoption.id, { notes: event.target.value })}
+                  maxLength={1000}
+                  placeholder="Watered, checked soil, removed litter..."
+                />
+              </label>
+              <label>
+                Photo URL
+                <input
+                  value={form.photoUrl}
+                  onChange={(event) => updateCareForm(adoption.id, { photoUrl: event.target.value })}
+                  placeholder="https://example.com/photo.jpg"
+                  type="url"
+                />
+              </label>
+              {form.error ? <p className="form-error">{form.error}</p> : null}
+              {form.success ? <p className="form-success">{form.success}</p> : null}
+              <button type="submit" disabled={form.isSubmitting}>
+                {form.isSubmitting ? "Logging..." : "Log Care"}
+              </button>
+            </form>
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

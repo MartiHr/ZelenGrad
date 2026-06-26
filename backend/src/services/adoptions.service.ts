@@ -128,6 +128,15 @@ export const createCareLog = async (userId: string, adoptionId: string, input: C
       id: adoptionId,
       userId,
       status: AdoptionStatus.ACTIVE
+    },
+    include: {
+      asset: {
+        select: {
+          id: true,
+          commonName: true,
+          species: true
+        }
+      }
     }
   });
 
@@ -135,11 +144,39 @@ export const createCareLog = async (userId: string, adoptionId: string, input: C
     throw new AppError(404, "Active adoption not found.");
   }
 
-  return prisma.adoptionCareLog.create({
-    data: {
-      adoptionId,
-      notes: input.notes,
-      photoUrls: input.photoUrls
-    }
+  const careLog = await prisma.$transaction(async (transaction) => {
+    const createdCareLog = await transaction.adoptionCareLog.create({
+      data: {
+        adoptionId,
+        notes: input.notes,
+        photoUrls: input.photoUrls
+      }
+    });
+
+    await transaction.user.update({
+      where: { id: userId },
+      data: { greenPoints: { increment: 5 } }
+    });
+
+    await transaction.rewardTransaction.create({
+      data: {
+        userId,
+        points: 5,
+        reason: RewardReason.CARE_LOGGED,
+        description: `Logged care for ${adoption.asset.commonName ?? adoption.asset.species}.`
+      }
+    });
+
+    return createdCareLog;
   });
+
+  sseHub.broadcast("adoption.care_logged", {
+    adoptionId: adoption.id,
+    careLogId: careLog.id,
+    assetId: adoption.assetId,
+    assetName: adoption.asset.commonName ?? adoption.asset.species,
+    loggedAt: careLog.loggedAt
+  });
+
+  return careLog;
 };

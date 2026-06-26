@@ -618,17 +618,28 @@ code {
   resize: vertical;
 }
 
+.inline-form button,
 .action-stack .inline-form button {
   width: fit-content;
   border: 0;
+  border-radius: 6px;
+  padding: 0.7rem 1rem;
   color: #ffffff;
   background: #12633f;
   cursor: pointer;
+  font: inherit;
+  font-weight: 700;
 }
 
+.inline-form button:disabled,
 .action-stack .inline-form button:disabled {
   cursor: wait;
   opacity: 0.7;
+}
+
+.care-form {
+  border-top: 1px solid #edf2ef;
+  padding-top: 0.9rem;
 }
 
 .form-success {
