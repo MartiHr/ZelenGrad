@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+.git
+.env
+*.log
+Course_Node_Express_React_Project_Summary.docx
+~$urse_Node_Express_React_Project_Summary.docx

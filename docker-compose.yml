@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: zelengrad-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zelengrad}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zelengrad}
+      POSTGRES_DB: ${POSTGRES_DB:-zelengrad}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zelengrad} -d ${POSTGRES_DB:-zelengrad}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - zelengrad
+
+  backend:
+    build:
+      context: ./backend
+      target: development
+    container_name: zelengrad-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: ${BACKEND_PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://zelengrad:zelengrad@postgres:5432/zelengrad?schema=public}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - ./backend:/app
+      - backend-node-modules:/app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "npm install && npm run prisma:generate && npm run dev"
+    networks:
+      - zelengrad
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    container_name: zelengrad-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000/api}
+      VITE_SSE_URL: ${VITE_SSE_URL:-http://localhost:3000/api/events}
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    depends_on:
+      - backend
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks:
+      - zelengrad
+
+volumes:
+  postgres-data:
+  backend-node-modules:
+  frontend-node-modules:
+
+networks:
+  zelengrad:
+    driver: bridge
