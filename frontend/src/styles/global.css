@@ -53,7 +53,8 @@ a {
 }
 
 .nav a,
-.session-actions a {
+.session-actions a,
+.session-actions button {
   border-radius: 6px;
   padding: 0.45rem 0.65rem;
   color: #40534a;
@@ -62,9 +63,17 @@ a {
 
 .nav a.active,
 .nav a:hover,
-.session-actions a:hover {
+.session-actions a:hover,
+.session-actions button:hover {
   background: #e5f2eb;
   color: #12633f;
+}
+
+.session-actions button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
 }
 
 .content {
@@ -140,6 +149,73 @@ code {
   border-radius: 6px;
   padding: 0.5rem;
   font-size: 0.82rem;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+  max-width: 440px;
+}
+
+.form label {
+  display: grid;
+  gap: 0.4rem;
+  color: #33483f;
+  font-weight: 700;
+}
+
+.form input {
+  width: 100%;
+  border: 1px solid #c9d6cf;
+  border-radius: 6px;
+  padding: 0.7rem 0.8rem;
+  color: #20312a;
+  background: #ffffff;
+  font: inherit;
+}
+
+.form button {
+  width: fit-content;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.7rem 1rem;
+  color: #ffffff;
+  background: #12633f;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.form button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.form-error {
+  color: #9d2c2c;
+  font-weight: 700;
+}
+
+.profile-summary dl {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0;
+}
+
+.profile-summary div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.profile-summary dt {
+  color: #60756c;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.profile-summary dd {
+  margin: 0;
 }
 
 @media (max-width: 820px) {

@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router";
 
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AppLayout } from "./layouts/AppLayout";
 import { AboutPage } from "./pages/AboutPage";
 import { AssetDetailsPage } from "./pages/AssetDetailsPage";
@@ -23,16 +24,65 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: "map", element: <GreenMapPage /> },
-      { path: "dashboard", element: <DashboardPage /> },
-      { path: "my-forest", element: <MyForestPage /> },
-      { path: "worklist", element: <WorklistPage /> },
+      {
+        path: "dashboard",
+        element: (
+          <ProtectedRoute roles={["MANAGER", "ADMIN"]}>
+            <DashboardPage />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "my-forest",
+        element: (
+          <ProtectedRoute roles={["CITIZEN"]}>
+            <MyForestPage />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "worklist",
+        element: (
+          <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
+            <WorklistPage />
+          </ProtectedRoute>
+        )
+      },
       { path: "register", element: <RegisterPage /> },
       { path: "login", element: <LoginPage /> },
-      { path: "profile", element: <ProfilePage /> },
-      { path: "zones", element: <ZonesPage /> },
-      { path: "users", element: <UsersPage /> },
+      {
+        path: "profile",
+        element: (
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "zones",
+        element: (
+          <ProtectedRoute roles={["MANAGER", "ADMIN"]}>
+            <ZonesPage />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "users",
+        element: (
+          <ProtectedRoute roles={["ADMIN"]}>
+            <UsersPage />
+          </ProtectedRoute>
+        )
+      },
       { path: "assets/:assetId", element: <AssetDetailsPage /> },
-      { path: "incidents", element: <IncidentReviewPage /> },
+      {
+        path: "incidents",
+        element: (
+          <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
+            <IncidentReviewPage />
+          </ProtectedRoute>
+        )
+      },
       { path: "about", element: <AboutPage /> },
       { path: "*", element: <NotFoundPage /> }
     ]
