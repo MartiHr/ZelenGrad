@@ -5,4 +5,9 @@ export const createZoneSchema = z.object({
   description: z.string().trim().max(1000).optional()
 });
 
+export const zoneAssignmentSchema = z.object({
+  employeeId: z.string().trim().min(1)
+});
+
 export type CreateZoneInput = z.infer<typeof createZoneSchema>;
+export type ZoneAssignmentInput = z.infer<typeof zoneAssignmentSchema>;

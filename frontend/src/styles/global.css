@@ -619,6 +619,84 @@ code {
   padding-top: 1rem;
 }
 
+.assignment-panel {
+  display: grid;
+  gap: 0.75rem;
+  border-top: 1px solid #edf2ef;
+  padding-top: 0.85rem;
+}
+
+.assignment-panel h3 {
+  margin: 0;
+  color: #173f2d;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.assignment-list {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.assignment-list li,
+.inline-assignment-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.assignment-list li {
+  justify-content: space-between;
+}
+
+.assignment-list span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.assignment-list small {
+  color: #60756c;
+}
+
+.assignment-list button,
+.inline-assignment-form button {
+  border: 1px solid #c9d6cf;
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  color: #20312a;
+  background: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.assignment-list button:hover:not(:disabled),
+.inline-assignment-form button:hover:not(:disabled) {
+  border-color: #12633f;
+  color: #12633f;
+}
+
+.assignment-list button:disabled,
+.inline-assignment-form button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.inline-assignment-form select {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid #c9d6cf;
+  border-radius: 6px;
+  padding: 0.6rem 0.7rem;
+  color: #20312a;
+  background: #ffffff;
+  font: inherit;
+}
+
 .completion-fields {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);

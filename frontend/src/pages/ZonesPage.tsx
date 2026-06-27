@@ -8,6 +8,16 @@ type Zone = {
   name: string;
   description: string | null;
   createdAt: string;
+  assignments: Array<{
+    id: string;
+    assignedAt: string;
+    employee: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+    };
+  }>;
   _count: {
     assets: number;
     tasks: number;
@@ -16,23 +26,39 @@ type Zone = {
   };
 };
 
+type StaffUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+};
+
 export const ZonesPage = () => {
   const { token } = useAuth();
   const [zones, setZones] = useState<Zone[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [assignmentByZone, setAssignmentByZone] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [updatingAssignment, setUpdatingAssignment] = useState<string | null>(null);
 
   const loadZones = async () => {
+    if (!token) {
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      setZones(await apiRequest<Zone[]>("/zones"));
+      setZones(await apiRequest<Zone[]>("/zones/management", { token }));
     } catch (caughtError) {
       setError(caughtError instanceof ApiError ? caughtError.message : "Could not load zones.");
     } finally {
@@ -42,7 +68,19 @@ export const ZonesPage = () => {
 
   useEffect(() => {
     void loadZones();
-  }, []);
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    apiRequest<StaffUser[]>("/users/staff", { token })
+      .then(setStaffUsers)
+      .catch((caughtError) => {
+        setError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
+      });
+  }, [token]);
 
   const createZone = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -74,6 +112,69 @@ export const ZonesPage = () => {
       setCreateError(caughtError instanceof ApiError ? caughtError.message : "Could not create zone.");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const replaceZone = (zone: Zone) => {
+    setZones((current) => current.map((currentZone) => (currentZone.id === zone.id ? zone : currentZone)));
+  };
+
+  const assignEmployee = async (zone: Zone) => {
+    if (!token) {
+      setAssignmentError("Please log in before assigning staff.");
+      return;
+    }
+
+    const employeeId = assignmentByZone[zone.id];
+
+    if (!employeeId) {
+      setAssignmentError("Choose a staff member first.");
+      return;
+    }
+
+    setUpdatingAssignment(`${zone.id}:assign`);
+    setAssignmentError(null);
+    setAssignmentSuccess(null);
+
+    try {
+      const updatedZone = await apiRequest<Zone>(`/zones/${zone.id}/assignments`, {
+        method: "POST",
+        token,
+        body: { employeeId }
+      });
+
+      replaceZone(updatedZone);
+      setAssignmentByZone((current) => ({ ...current, [zone.id]: "" }));
+      setAssignmentSuccess(`Updated assignments for ${updatedZone.name}.`);
+    } catch (caughtError) {
+      setAssignmentError(caughtError instanceof ApiError ? caughtError.message : "Could not assign staff user.");
+    } finally {
+      setUpdatingAssignment(null);
+    }
+  };
+
+  const removeEmployee = async (zone: Zone, employeeId: string) => {
+    if (!token) {
+      setAssignmentError("Please log in before removing staff.");
+      return;
+    }
+
+    setUpdatingAssignment(`${zone.id}:${employeeId}`);
+    setAssignmentError(null);
+    setAssignmentSuccess(null);
+
+    try {
+      const updatedZone = await apiRequest<Zone>(`/zones/${zone.id}/assignments/${employeeId}`, {
+        method: "DELETE",
+        token
+      });
+
+      replaceZone(updatedZone);
+      setAssignmentSuccess(`Updated assignments for ${updatedZone.name}.`);
+    } catch (caughtError) {
+      setAssignmentError(caughtError instanceof ApiError ? caughtError.message : "Could not remove staff user.");
+    } finally {
+      setUpdatingAssignment(null);
     }
   };
 
@@ -116,6 +217,8 @@ export const ZonesPage = () => {
       </article>
 
       {error ? <p className="form-error">{error}</p> : null}
+      {assignmentError ? <p className="form-error">{assignmentError}</p> : null}
+      {assignmentSuccess ? <p className="form-success">{assignmentSuccess}</p> : null}
 
       <div className="asset-grid">
         {isLoading ? <p>Loading zones...</p> : null}
@@ -145,6 +248,54 @@ export const ZonesPage = () => {
                 <dd>{zone._count.assignments}</dd>
               </div>
             </dl>
+            <div className="assignment-panel">
+              <h3>Assigned Staff</h3>
+              {zone.assignments.length ? (
+                <ul className="assignment-list">
+                  {zone.assignments.map((assignment) => (
+                    <li key={assignment.id}>
+                      <span>
+                        <strong>{assignment.employee.name}</strong>
+                        <small>
+                          {assignment.employee.role} | {assignment.employee.email}
+                        </small>
+                      </span>
+                      <button
+                        type="button"
+                        disabled={updatingAssignment === `${zone.id}:${assignment.employee.id}`}
+                        onClick={() => void removeEmployee(zone, assignment.employee.id)}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No staff are assigned to this zone yet.</p>
+              )}
+              <div className="inline-assignment-form">
+                <select
+                  value={assignmentByZone[zone.id] ?? ""}
+                  onChange={(event) =>
+                    setAssignmentByZone((current) => ({ ...current, [zone.id]: event.target.value }))
+                  }
+                >
+                  <option value="">Choose staff</option>
+                  {staffUsers.map((staffUser) => (
+                    <option key={staffUser.id} value={staffUser.id}>
+                      {staffUser.name} ({staffUser.role})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={updatingAssignment === `${zone.id}:assign`}
+                  onClick={() => void assignEmployee(zone)}
+                >
+                  Assign
+                </button>
+              </div>
+            </div>
           </article>
         ))}
       </div>
