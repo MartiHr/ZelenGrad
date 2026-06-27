@@ -140,21 +140,29 @@ export const createIncident = async (input: CreateIncidentInput, reporterId: str
 
 export const updateIncident = async (incidentId: string, input: UpdateIncidentInput, verifierId: string) => {
   const existingIncident = await getIncidentById(incidentId);
+  const nextStatus = input.status;
 
-  const shouldMarkVerified =
-    input.status === IncidentStatus.VERIFIED ||
-    input.status === IncidentStatus.IN_PROGRESS ||
-    input.status === IncidentStatus.RESOLVED;
-  const shouldAwardVerification = shouldMarkVerified && !existingIncident.verifiedAt && Boolean(existingIncident.reporterId);
+  const shouldMarkReviewed =
+    nextStatus === IncidentStatus.VERIFIED ||
+    nextStatus === IncidentStatus.IN_PROGRESS ||
+    nextStatus === IncidentStatus.RESOLVED ||
+    nextStatus === IncidentStatus.REJECTED;
+  const shouldAwardEligible =
+    nextStatus === IncidentStatus.VERIFIED ||
+    nextStatus === IncidentStatus.IN_PROGRESS ||
+    nextStatus === IncidentStatus.RESOLVED;
+  const shouldClearReview = nextStatus === IncidentStatus.REPORTED;
+  const shouldResolve = nextStatus === IncidentStatus.RESOLVED;
+  const shouldAwardVerification = shouldAwardEligible && !existingIncident.verifiedAt && Boolean(existingIncident.reporterId);
 
   const incident = await prisma.$transaction(async (transaction) => {
     const updatedIncident = await transaction.incidentReport.update({
       where: { id: incidentId },
       data: {
         ...input,
-        verifiedById: shouldMarkVerified ? verifierId : undefined,
-        verifiedAt: shouldMarkVerified ? new Date() : undefined,
-        resolvedAt: input.status === IncidentStatus.RESOLVED ? new Date() : undefined
+        verifiedById: shouldClearReview ? null : shouldMarkReviewed ? verifierId : undefined,
+        verifiedAt: shouldClearReview ? null : shouldMarkReviewed ? (existingIncident.verifiedAt ?? new Date()) : undefined,
+        resolvedAt: nextStatus ? (shouldResolve ? (existingIncident.resolvedAt ?? new Date()) : null) : undefined
       },
       include: incidentInclude
     });

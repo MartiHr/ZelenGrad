@@ -612,6 +612,12 @@ code {
   color: #9d2c2c;
 }
 
+.button-row .muted-button {
+  border-color: #d9e2dc;
+  color: #60756c;
+  background: #edf2ef;
+}
+
 .task-list {
   display: grid;
   gap: 1rem;

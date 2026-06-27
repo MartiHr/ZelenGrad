@@ -442,12 +442,12 @@ export const UsersPage = () => {
                     {form.isSaving ? "Saving..." : "Save User"}
                   </button>
                   <button
-                    className="danger-button"
+                    className={managedUser.isActive ? "danger-button" : "muted-button"}
                     disabled={form.isDeactivating || !managedUser.isActive || isSelf}
                     onClick={() => void deactivateManagedUser(managedUser)}
                     type="button"
                   >
-                    {form.isDeactivating ? "Deactivating..." : "Deactivate"}
+                    {form.isDeactivating ? "Deactivating..." : managedUser.isActive ? "Deactivate" : "Deactivated"}
                   </button>
                 </div>
               </form>

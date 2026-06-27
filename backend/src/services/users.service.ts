@@ -66,7 +66,7 @@ export const registerCitizen = async (input: RegisterInput) => {
 export const loginUser = async (input: LoginInput) => {
   const user = await prisma.user.findUnique({ where: { email: input.email } });
 
-  if (!user || !user.isActive) {
+  if (!user) {
     throw new AppError(401, "Invalid email or password.");
   }
 
@@ -74,6 +74,10 @@ export const loginUser = async (input: LoginInput) => {
 
   if (!passwordMatches) {
     throw new AppError(401, "Invalid email or password.");
+  }
+
+  if (!user.isActive) {
+    throw new AppError(403, "Your account has been deactivated. Please contact an administrator.");
   }
 
   const updatedUser = await prisma.user.update({
