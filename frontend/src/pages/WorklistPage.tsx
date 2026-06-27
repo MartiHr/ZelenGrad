@@ -34,6 +34,13 @@ type StaffUser = {
 const statuses = ["ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const filterStatuses = ["PLANNED", ...statuses];
 const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED", "REMOVED"];
+const statusHints: Record<string, string> = {
+  PLANNED: "Waiting for assignment or responsible-zone pickup.",
+  ASSIGNED: "Ready for field work.",
+  IN_PROGRESS: "Work has started.",
+  COMPLETED: "Completed and logged.",
+  CANCELLED: "No further action planned."
+};
 
 const formatDateTime = (value: string | null) => {
   if (!value) {
@@ -44,6 +51,22 @@ const formatDateTime = (value: string | null) => {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(new Date(value));
+};
+
+const getNextStatuses = (status: string) => {
+  switch (status) {
+    case "PLANNED":
+      return ["ASSIGNED", "IN_PROGRESS", "CANCELLED"];
+    case "ASSIGNED":
+      return ["IN_PROGRESS", "COMPLETED", "CANCELLED"];
+    case "IN_PROGRESS":
+      return ["COMPLETED", "CANCELLED"];
+    case "COMPLETED":
+    case "CANCELLED":
+      return [];
+    default:
+      return statuses.filter((nextStatus) => nextStatus !== status);
+  }
 };
 
 export const WorklistPage = () => {
@@ -146,6 +169,8 @@ export const WorklistPage = () => {
       });
 
       setTasks((current) => current.map((currentTask) => (currentTask.id === task.id ? updatedTask : currentTask)));
+      setNotesByTask((current) => ({ ...current, [task.id]: "" }));
+      setHealthByTask((current) => ({ ...current, [task.id]: "" }));
     } catch (caughtError) {
       setError(caughtError instanceof ApiError ? caughtError.message : "Could not update task.");
     } finally {
@@ -156,7 +181,10 @@ export const WorklistPage = () => {
   return (
     <section className="page">
       <h1>Worklist</h1>
-      <p>Review assigned maintenance tasks, start field work, and log completion details.</p>
+      <p>
+        Review assigned work, responsible-zone pool tasks, and field completion updates without losing the operational
+        context.
+      </p>
 
       <div className="toolbar">
         <label>
@@ -206,8 +234,8 @@ export const WorklistPage = () => {
           <label>
             Scope
             <select value={employeeScope} onChange={(event) => setEmployeeScope(event.target.value)}>
-              <option value="assigned">Assigned to me</option>
-              <option value="responsible-zones">My responsible zones</option>
+              <option value="assigned">Assigned plus unassigned zone work</option>
+              <option value="responsible-zones">All work in my responsible zones</option>
             </select>
           </label>
         )}
@@ -252,17 +280,32 @@ export const WorklistPage = () => {
 
       {error ? <p className="form-error">{error}</p> : null}
 
+      <div className="worklist-summary">
+        <span>{tasks.length} visible tasks</span>
+        <span>{tasks.filter((task) => !task.assignedTo).length} unassigned</span>
+        <span>{tasks.filter((task) => task.status === "IN_PROGRESS").length} in progress</span>
+        <span>{tasks.filter((task) => task.status === "COMPLETED").length} completed</span>
+      </div>
+
       <div className="task-list">
         {isLoading ? <p>Loading tasks...</p> : null}
-        {!isLoading && tasks.length === 0 ? <p>No maintenance tasks are assigned right now.</p> : null}
-        {tasks.map((task) => (
-          <article className="task-card" key={task.id}>
+        {!isLoading && tasks.length === 0 ? <p>No maintenance tasks match the current filters.</p> : null}
+        {tasks.map((task) => {
+          const nextStatuses = getNextStatuses(task.status);
+          const isCompleting = updatingId === task.id;
+
+          return (
+          <article className={`task-card status-${task.status.toLowerCase()}`} key={task.id}>
             <header>
               <div>
                 <p className="eyebrow">{task.type}</p>
                 <h2>{task.title}</h2>
+                <p className="muted-text">{statusHints[task.status] ?? "Maintenance task"}</p>
               </div>
-              <span className={`badge ${task.priority.toLowerCase()}`}>{task.priority}</span>
+              <div className="task-chip-row">
+                <span className={`badge status-badge ${task.status.toLowerCase()}`}>{task.status}</span>
+                <span className={`badge ${task.priority.toLowerCase()}`}>{task.priority}</span>
+              </div>
             </header>
             {task.description ? <p>{task.description}</p> : null}
             <dl>
@@ -280,7 +323,10 @@ export const WorklistPage = () => {
               </div>
               <div>
                 <dt>Assignee</dt>
-                <dd>{task.assignedTo?.name ?? "Unassigned"}</dd>
+                <dd>
+                  {task.assignedTo?.name ?? "Unassigned"}
+                  {!task.assignedTo ? <span className="inline-note">zone pool</span> : null}
+                </dd>
               </div>
               <div>
                 <dt>Scheduled</dt>
@@ -292,46 +338,50 @@ export const WorklistPage = () => {
               </div>
             </dl>
 
-            <div className="completion-fields">
-              <label>
-                Completion notes
-                <textarea
-                  value={notesByTask[task.id] ?? ""}
-                  onChange={(event) => setNotesByTask((current) => ({ ...current, [task.id]: event.target.value }))}
-                  placeholder="Watered with 20 liters, checked soil..."
-                />
-              </label>
-              <label>
-                Resulting health
-                <select
-                  value={healthByTask[task.id] ?? ""}
-                  onChange={(event) => setHealthByTask((current) => ({ ...current, [task.id]: event.target.value }))}
-                >
-                  <option value="">No change</option>
-                  {healthStatuses.map((healthStatus) => (
-                    <option key={healthStatus} value={healthStatus}>
-                      {healthStatus}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            {nextStatuses.includes("COMPLETED") ? (
+              <div className="completion-fields">
+                <label>
+                  Completion notes
+                  <textarea
+                    value={notesByTask[task.id] ?? ""}
+                    onChange={(event) => setNotesByTask((current) => ({ ...current, [task.id]: event.target.value }))}
+                    placeholder="Watered with 20 liters, checked soil..."
+                  />
+                </label>
+                <label>
+                  Resulting health
+                  <select
+                    value={healthByTask[task.id] ?? ""}
+                    onChange={(event) => setHealthByTask((current) => ({ ...current, [task.id]: event.target.value }))}
+                  >
+                    <option value="">No change</option>
+                    {healthStatuses.map((healthStatus) => (
+                      <option key={healthStatus} value={healthStatus}>
+                        {healthStatus}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : null}
 
             <div className="button-row">
               <Link to={`/worklist/${task.id}`}>Open details</Link>
-              {statuses.map((status) => (
+              {nextStatuses.map((status) => (
                 <button
                   key={status}
                   type="button"
                   disabled={updatingId === task.id || task.status === status}
                   onClick={() => void updateStatus(task, status)}
                 >
-                  {status}
+                  {isCompleting ? "Updating..." : status}
                 </button>
               ))}
+              {nextStatuses.length === 0 ? <span className="muted-text">No status actions available.</span> : null}
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

@@ -775,6 +775,31 @@ code {
   background: #f7dddd;
 }
 
+.status-badge.planned {
+  color: #40534a;
+  background: #edf2ef;
+}
+
+.status-badge.assigned {
+  color: #12633f;
+  background: #e5f2eb;
+}
+
+.status-badge.in_progress {
+  color: #8a5a12;
+  background: #fff4d8;
+}
+
+.status-badge.completed {
+  color: #155724;
+  background: #d7f3df;
+}
+
+.status-badge.cancelled {
+  color: #7a2020;
+  background: #f7dddd;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
@@ -834,6 +859,22 @@ code {
   gap: 1rem;
 }
 
+.worklist-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.worklist-summary span {
+  border: 1px solid #d9e2dc;
+  border-radius: 999px;
+  padding: 0.4rem 0.65rem;
+  color: #33483f;
+  background: #f8fbf9;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
 .task-card {
   display: grid;
   gap: 1rem;
@@ -841,6 +882,18 @@ code {
   border-radius: 8px;
   background: #ffffff;
   padding: 1rem;
+}
+
+.task-card.status-in_progress {
+  border-color: #ead79b;
+}
+
+.task-card.status-completed {
+  border-color: #b9d7c7;
+}
+
+.task-card.status-cancelled {
+  opacity: 0.78;
 }
 
 .task-card header {
@@ -873,6 +926,26 @@ code {
 
 .task-card dd {
   margin: 0;
+}
+
+.task-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.inline-note {
+  display: inline-block;
+  width: fit-content;
+  margin-left: 0.45rem;
+  border-radius: 999px;
+  padding: 0.16rem 0.45rem;
+  color: #12633f;
+  background: #e5f2eb;
+  font-size: 0.74rem;
+  font-weight: 900;
+  vertical-align: middle;
 }
 
 .user-list {
