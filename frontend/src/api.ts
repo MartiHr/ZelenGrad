@@ -20,6 +20,10 @@ type ApiOptions = {
   token?: string | null;
 };
 
+type UploadResponse = {
+  url: string;
+};
+
 const getErrorMessage = (data: unknown) => {
   if (typeof data !== "object" || data === null) {
     return "Request failed.";
@@ -63,4 +67,23 @@ export const apiRequest = async <T>(path: string, options: ApiOptions = {}) => {
   }
 
   return data as T;
+};
+
+export const uploadAssetImage = async (file: File, token: string | null) => {
+  const response = await fetch(`${apiConfig.baseUrl}/uploads/assets`, {
+    method: "POST",
+    headers: {
+      "Content-Type": file.type,
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: file
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new ApiError(response.status, getErrorMessage(data));
+  }
+
+  return (data as UploadResponse).url;
 };

@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
-import { ApiError, apiRequest } from "../api";
+import { ApiError, apiRequest, uploadAssetImage } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
 type GreenAsset = {
@@ -46,7 +46,7 @@ const healthColors: Record<string, string> = {
 const assetTypes = ["TREE", "PARK", "SHRUB", "GARDEN"];
 const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED"];
 const defaultCenter: [number, number] = [42.6977, 23.3219];
-const maxPhotoBytes = 1_000_000;
+const maxPhotoBytes = 5 * 1024 * 1024;
 
 const getCoordinates = (asset: GreenAsset): [number, number] => [Number(asset.latitude), Number(asset.longitude)];
 const getAssetPhotoUrl = (asset: GreenAsset) =>
@@ -128,6 +128,8 @@ export const GreenMapPage = () => {
   const [assetLatitude, setAssetLatitude] = useState("");
   const [assetLongitude, setAssetLongitude] = useState("");
   const [assetPhotoUrl, setAssetPhotoUrl] = useState("");
+  const [assetPhotoFile, setAssetPhotoFile] = useState<File | null>(null);
+  const [assetPhotoPreviewUrl, setAssetPhotoPreviewUrl] = useState("");
   const [assetHealthStatus, setAssetHealthStatus] = useState("HEALTHY");
   const [assetPlantedAt, setAssetPlantedAt] = useState("");
   const [assetZoneId, setAssetZoneId] = useState("");
@@ -180,6 +182,14 @@ export const GreenMapPage = () => {
       .catch(() => setZones([]));
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (assetPhotoPreviewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(assetPhotoPreviewUrl);
+      }
+    };
+  }, [assetPhotoPreviewUrl]);
+
   const canManageAssets = hasRole("EMPLOYEE", "MANAGER", "ADMIN");
 
   const useCurrentLocation = () => {
@@ -216,17 +226,28 @@ export const GreenMapPage = () => {
     }
 
     if (file.size > maxPhotoBytes) {
-      setCreateError("Choose an image under 1 MB.");
+      setCreateError("Choose an image under 5 MB.");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAssetPhotoUrl(typeof reader.result === "string" ? reader.result : "");
-      setCreateError(null);
-    };
-    reader.onerror = () => setCreateError("Could not read the selected image.");
-    reader.readAsDataURL(file);
+    if (assetPhotoPreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(assetPhotoPreviewUrl);
+    }
+
+    setAssetPhotoFile(file);
+    setAssetPhotoPreviewUrl(URL.createObjectURL(file));
+    setAssetPhotoUrl("");
+    setCreateError(null);
+  };
+
+  const clearSelectedPhoto = () => {
+    if (assetPhotoPreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(assetPhotoPreviewUrl);
+    }
+
+    setAssetPhotoFile(null);
+    setAssetPhotoPreviewUrl("");
+    setAssetPhotoUrl("");
   };
 
   const createGreenAsset = async (event: FormEvent<HTMLFormElement>) => {
@@ -242,6 +263,7 @@ export const GreenMapPage = () => {
     setCreateSuccess(null);
 
     try {
+      const savedPhotoUrl = assetPhotoFile ? await uploadAssetImage(assetPhotoFile, token) : assetPhotoUrl.trim();
       const createdAsset = await apiRequest<GreenAsset>("/assets", {
         method: "POST",
         token,
@@ -255,7 +277,7 @@ export const GreenMapPage = () => {
           plantedAt: assetPlantedAt || undefined,
           healthStatus: assetHealthStatus,
           zoneId: assetZoneId || undefined,
-          photoUrl: assetPhotoUrl.trim() || undefined
+          photoUrl: savedPhotoUrl || undefined
         }
       });
 
@@ -265,7 +287,7 @@ export const GreenMapPage = () => {
       setAssetDescription("");
       setAssetLatitude("");
       setAssetLongitude("");
-      setAssetPhotoUrl("");
+      clearSelectedPhoto();
       setAssetPlantedAt("");
       setAssetZoneId("");
       setAssetType("TREE");
@@ -458,19 +480,27 @@ export const GreenMapPage = () => {
               <label>
                 Photo URL
                 <input
-                  value={assetPhotoUrl.startsWith("data:") ? "" : assetPhotoUrl}
-                  onChange={(event) => setAssetPhotoUrl(event.target.value)}
+                  value={assetPhotoUrl}
+                  onChange={(event) => {
+                    if (assetPhotoPreviewUrl.startsWith("blob:")) {
+                      URL.revokeObjectURL(assetPhotoPreviewUrl);
+                    }
+
+                    setAssetPhotoFile(null);
+                    setAssetPhotoPreviewUrl("");
+                    setAssetPhotoUrl(event.target.value);
+                  }}
                   placeholder="https://example.com/tree-photo.jpg"
                 />
               </label>
               <label>
-                Upload preview photo
+                Upload photo
                 <input type="file" accept="image/*" onChange={(event) => choosePhotoFile(event.target.files?.[0])} />
               </label>
-              {assetPhotoUrl ? (
+              {assetPhotoPreviewUrl || assetPhotoUrl ? (
                 <figure className="asset-photo-preview">
-                  <img src={assetPhotoUrl} alt="Selected asset preview" />
-                  <button type="button" className="muted-button" onClick={() => setAssetPhotoUrl("")}>
+                  <img src={assetPhotoPreviewUrl || assetPhotoUrl} alt="Selected asset preview" />
+                  <button type="button" className="muted-button" onClick={clearSelectedPhoto}>
                     Remove Photo
                   </button>
                 </figure>

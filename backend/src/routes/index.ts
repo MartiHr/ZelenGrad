@@ -10,6 +10,7 @@ import { healthRouter } from "./health.routes.js";
 import { incidentsRouter } from "./incidents.routes.js";
 import { maintenanceRouter } from "./maintenance.routes.js";
 import { rewardsRouter } from "./rewards.routes.js";
+import { uploadsRouter } from "./uploads.routes.js";
 import { usersRouter } from "./users.routes.js";
 import { zonesRouter } from "./zones.routes.js";
 
@@ -27,3 +28,4 @@ apiRouter.use("/maintenance", maintenanceRouter);
 apiRouter.use("/adoptions", adoptionsRouter);
 apiRouter.use("/incidents", incidentsRouter);
 apiRouter.use("/rewards", rewardsRouter);
+apiRouter.use("/uploads", uploadsRouter);

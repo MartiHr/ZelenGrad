@@ -6,6 +6,8 @@ dist/
 build/
 coverage/
 *.tsbuildinfo
+uploads/
+backend/uploads/
 
 # Local environment files
 .env
