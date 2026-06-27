@@ -47,6 +47,24 @@ const taskInclude = {
   }
 } satisfies Prisma.MaintenanceTaskInclude;
 
+const taskDetailInclude = {
+  ...taskInclude,
+  logs: {
+    orderBy: {
+      performedAt: "desc"
+    },
+    include: {
+      employee: {
+        select: {
+          id: true,
+          name: true,
+          email: true
+        }
+      }
+    }
+  }
+} satisfies Prisma.MaintenanceTaskInclude;
+
 export const listMaintenanceTasks = async (query: ListMaintenanceQuery, currentUserId: string, canViewAll: boolean) => {
   return prisma.maintenanceTask.findMany({
     where: {
@@ -63,11 +81,21 @@ export const listMaintenanceTasks = async (query: ListMaintenanceQuery, currentU
 export const getMaintenanceTaskById = async (taskId: string) => {
   const task = await prisma.maintenanceTask.findUnique({
     where: { id: taskId },
-    include: taskInclude
+    include: taskDetailInclude
   });
 
   if (!task) {
     throw new AppError(404, "Maintenance task not found.");
+  }
+
+  return task;
+};
+
+export const getMaintenanceTaskForUser = async (taskId: string, currentUserId: string, canViewAll: boolean) => {
+  const task = await getMaintenanceTaskById(taskId);
+
+  if (!canViewAll && task.assignedToId !== currentUserId) {
+    throw new AppError(403, "You do not have access to this maintenance task.");
   }
 
   return task;
@@ -110,7 +138,7 @@ export const updateMaintenanceTaskStatus = async (
         completedById: input.status === MaintenanceTaskStatus.COMPLETED ? completedById : null,
         completedAt
       },
-      include: taskInclude
+      include: taskDetailInclude
     });
 
     if (input.status === MaintenanceTaskStatus.COMPLETED) {

@@ -6,6 +6,7 @@ import { validateBody } from "../middleware/validate.js";
 import { validateQuery } from "../middleware/validateQuery.js";
 import {
   createMaintenanceTask,
+  getMaintenanceTaskForUser,
   listMaintenanceTasks,
   updateMaintenanceTaskStatus
 } from "../services/maintenance.service.js";
@@ -46,6 +47,27 @@ maintenanceRouter.post(
   async (request, response, next) => {
     try {
       response.status(201).json(await createMaintenanceTask(request.body, request.user!.id));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+maintenanceRouter.get(
+  "/:taskId",
+  requireAuth,
+  requireRole(...workerRoles),
+  async (request, response, next) => {
+    try {
+      const { taskId } = request.params;
+
+      if (typeof taskId !== "string") {
+        response.status(400).json({ error: "Validation Error", message: "Task id is required." });
+        return;
+      }
+
+      const canViewAll = request.user!.role === UserRole.MANAGER || request.user!.role === UserRole.ADMIN;
+      response.json(await getMaintenanceTaskForUser(taskId, request.user!.id, canViewAll));
     } catch (error) {
       next(error);
     }

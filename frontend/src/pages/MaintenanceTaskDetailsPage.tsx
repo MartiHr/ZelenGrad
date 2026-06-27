@@ -1,0 +1,294 @@
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router";
+
+import { ApiError, apiRequest } from "../api";
+import { useAuth } from "../auth/AuthContext";
+
+type UserSummary = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+type MaintenanceLog = {
+  id: string;
+  notes: string | null;
+  resultingHealth: string | null;
+  performedAt: string;
+  createdAt: string;
+  employee: UserSummary | null;
+};
+
+type MaintenanceTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  status: string;
+  priority: string;
+  scheduledFor: string | null;
+  dueAt: string | null;
+  recurrenceRule: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  asset: { id: string; commonName: string | null; species: string; healthStatus: string } | null;
+  zone: { id: string; name: string } | null;
+  assignedTo: UserSummary | null;
+  createdBy: UserSummary | null;
+  completedBy: UserSummary | null;
+  logs: MaintenanceLog[];
+};
+
+const statuses = ["ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED", "REMOVED"];
+
+const formatDateTime = (value: string | null) => {
+  if (!value) {
+    return "Not set";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(value));
+};
+
+const formatUser = (user: UserSummary | null) => (user ? `${user.name} (${user.email})` : "Unassigned");
+
+export const MaintenanceTaskDetailsPage = () => {
+  const { taskId } = useParams();
+  const { token } = useAuth();
+  const [task, setTask] = useState<MaintenanceTask | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [notes, setNotes] = useState("");
+  const [resultingHealth, setResultingHealth] = useState("");
+
+  useEffect(() => {
+    if (!taskId || !token) {
+      setError("Task id is missing.");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    apiRequest<MaintenanceTask>(`/maintenance/${taskId}`, { token })
+      .then(setTask)
+      .catch((caughtError) => {
+        setError(caughtError instanceof ApiError ? caughtError.message : "Could not load maintenance task.");
+      })
+      .finally(() => setIsLoading(false));
+  }, [taskId, token]);
+
+  const updateTaskStatus = async (status: string) => {
+    if (!task || !token) {
+      return;
+    }
+
+    setUpdatingStatus(status);
+    setError(null);
+
+    try {
+      const updatedTask = await apiRequest<MaintenanceTask>(`/maintenance/${task.id}/status`, {
+        method: "PATCH",
+        token,
+        body: {
+          status,
+          notes: notes || undefined,
+          resultingHealth: status === "COMPLETED" ? resultingHealth || undefined : undefined
+        }
+      });
+
+      setTask(updatedTask);
+      setNotes("");
+      setResultingHealth("");
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiError ? caughtError.message : "Could not update task.");
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <section className="page">
+        <h1>Task Details</h1>
+        <p>Loading maintenance task...</p>
+      </section>
+    );
+  }
+
+  if (error || !task) {
+    return (
+      <section className="page narrow">
+        <h1>Task Details</h1>
+        <p className="form-error">{error ?? "Maintenance task not found."}</p>
+        <Link className="text-link" to="/worklist">
+          Back to worklist
+        </Link>
+      </section>
+    );
+  }
+
+  return (
+    <section className="page">
+      <div className="details-header">
+        <div>
+          <p className="eyebrow">{task.type}</p>
+          <h1>{task.title}</h1>
+          <p>{task.description ?? "No additional task description was provided."}</p>
+        </div>
+        <Link to="/worklist">Back to worklist</Link>
+      </div>
+
+      {error ? <p className="form-error">{error}</p> : null}
+
+      <div className="details-grid">
+        <article className="panel details-panel">
+          <h2>Assignment</h2>
+          <dl>
+            <div>
+              <dt>Status</dt>
+              <dd>{task.status}</dd>
+            </div>
+            <div>
+              <dt>Priority</dt>
+              <dd>{task.priority}</dd>
+            </div>
+            <div>
+              <dt>Assignee</dt>
+              <dd>{formatUser(task.assignedTo)}</dd>
+            </div>
+            <div>
+              <dt>Created by</dt>
+              <dd>{formatUser(task.createdBy)}</dd>
+            </div>
+            <div>
+              <dt>Completed by</dt>
+              <dd>{formatUser(task.completedBy)}</dd>
+            </div>
+            <div>
+              <dt>Recurrence</dt>
+              <dd>{task.recurrenceRule ?? "One-time task"}</dd>
+            </div>
+          </dl>
+
+          <div className="completion-fields">
+            <label>
+              Completion notes
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="Watered with 20 liters, pruned branches, replaced mulch..."
+              />
+            </label>
+            <label>
+              Resulting health
+              <select value={resultingHealth} onChange={(event) => setResultingHealth(event.target.value)}>
+                <option value="">No change</option>
+                {healthStatuses.map((healthStatus) => (
+                  <option key={healthStatus} value={healthStatus}>
+                    {healthStatus}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="button-row">
+            {statuses.map((status) => (
+              <button
+                key={status}
+                type="button"
+                disabled={updatingStatus !== null || task.status === status}
+                onClick={() => void updateTaskStatus(status)}
+              >
+                {updatingStatus === status ? "Updating..." : status}
+              </button>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel details-panel">
+          <h2>Schedule</h2>
+          <dl>
+            <div>
+              <dt>Scheduled</dt>
+              <dd>{formatDateTime(task.scheduledFor)}</dd>
+            </div>
+            <div>
+              <dt>Due</dt>
+              <dd>{formatDateTime(task.dueAt)}</dd>
+            </div>
+            <div>
+              <dt>Completed</dt>
+              <dd>{formatDateTime(task.completedAt)}</dd>
+            </div>
+            <div>
+              <dt>Created</dt>
+              <dd>{formatDateTime(task.createdAt)}</dd>
+            </div>
+            <div>
+              <dt>Updated</dt>
+              <dd>{formatDateTime(task.updatedAt)}</dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+
+      <div className="details-grid">
+        <article className="panel details-panel">
+          <h2>Target</h2>
+          <dl>
+            <div>
+              <dt>Asset</dt>
+              <dd>
+                {task.asset ? (
+                  <Link className="text-link" to={`/assets/${task.asset.id}`}>
+                    {task.asset.commonName ?? task.asset.species}
+                  </Link>
+                ) : (
+                  "Zone task"
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Species</dt>
+              <dd>{task.asset?.species ?? "Not applicable"}</dd>
+            </div>
+            <div>
+              <dt>Asset health</dt>
+              <dd>{task.asset?.healthStatus ?? "Unknown"}</dd>
+            </div>
+            <div>
+              <dt>Zone</dt>
+              <dd>{task.zone?.name ?? "Unassigned"}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article className="panel details-panel">
+          <h2>Completion History</h2>
+          {task.logs.length ? (
+            <ul className="timeline">
+              {task.logs.map((log) => (
+                <li key={log.id}>
+                  <strong>{log.resultingHealth ?? "Logged work"}</strong>
+                  <span>{formatDateTime(log.performedAt)}</span>
+                  <small>{log.employee ? formatUser(log.employee) : "Unknown employee"}</small>
+                  {log.notes ? <p>{log.notes}</p> : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No completion logs have been recorded yet.</p>
+          )}
+        </article>
+      </div>
+    </section>
+  );
+};

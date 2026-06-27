@@ -10,6 +10,7 @@ import { HomePage } from "./pages/HomePage";
 import { IncidentReviewPage } from "./pages/IncidentReviewPage";
 import { IncidentDetailsPage } from "./pages/IncidentDetailsPage";
 import { LoginPage } from "./pages/LoginPage";
+import { MaintenanceTaskDetailsPage } from "./pages/MaintenanceTaskDetailsPage";
 import { MyForestPage } from "./pages/MyForestPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -46,6 +47,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
             <WorklistPage />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "worklist/:taskId",
+        element: (
+          <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
+            <MaintenanceTaskDetailsPage />
           </ProtectedRoute>
         )
       },

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
@@ -161,6 +162,7 @@ export const WorklistPage = () => {
             </div>
 
             <div className="button-row">
+              <Link to={`/worklist/${task.id}`}>Open details</Link>
               {statuses.map((status) => (
                 <button
                   key={status}
