@@ -50,6 +50,14 @@ const healthColors: Record<string, string> = {
 
 const assetTypes = ["TREE", "PARK", "SHRUB", "GARDEN"];
 const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED"];
+const sortOptions = [
+  { value: "name-asc", label: "Name A-Z" },
+  { value: "name-desc", label: "Name Z-A" },
+  { value: "health-asc", label: "Health" },
+  { value: "zone-asc", label: "Zone" },
+  { value: "type-asc", label: "Type" }
+];
+const pageSizeOptions = [6, 12, 24];
 const defaultCenter: [number, number] = [42.6977, 23.3219];
 const maxPhotoBytes = 5 * 1024 * 1024;
 
@@ -130,8 +138,12 @@ export const GreenMapPage = () => {
   const { hasRole, token } = useAuth();
   const [assets, setAssets] = useState<GreenAsset[]>([]);
   const [healthStatus, setHealthStatus] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [species, setSpecies] = useState("");
   const [zoneId, setZoneId] = useState("");
+  const [sortBy, setSortBy] = useState("name-asc");
+  const [pageSize, setPageSize] = useState(12);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [zones, setZones] = useState<Zone[]>([]);
@@ -161,6 +173,10 @@ export const GreenMapPage = () => {
       params.set("healthStatus", healthStatus);
     }
 
+    if (typeFilter) {
+      params.set("type", typeFilter);
+    }
+
     if (species.trim()) {
       params.set("species", species.trim());
     }
@@ -171,7 +187,30 @@ export const GreenMapPage = () => {
 
     const value = params.toString();
     return value ? `?${value}` : "";
-  }, [healthStatus, species, zoneId]);
+  }, [healthStatus, species, typeFilter, zoneId]);
+
+  const sortedAssets = useMemo(() => {
+    return [...assets].sort((left, right) => {
+      const leftName = (left.commonName ?? left.species).toLowerCase();
+      const rightName = (right.commonName ?? right.species).toLowerCase();
+
+      switch (sortBy) {
+        case "name-desc":
+          return rightName.localeCompare(leftName);
+        case "health-asc":
+          return left.healthStatus.localeCompare(right.healthStatus) || leftName.localeCompare(rightName);
+        case "zone-asc":
+          return (left.zone?.name ?? "Unassigned").localeCompare(right.zone?.name ?? "Unassigned") || leftName.localeCompare(rightName);
+        case "type-asc":
+          return left.type.localeCompare(right.type) || leftName.localeCompare(rightName);
+        default:
+          return leftName.localeCompare(rightName);
+      }
+    });
+  }, [assets, sortBy]);
+  const pageCount = Math.max(1, Math.ceil(sortedAssets.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const paginatedAssets = sortedAssets.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const loadAssets = async () => {
     setIsLoading(true);
@@ -189,6 +228,10 @@ export const GreenMapPage = () => {
   useEffect(() => {
     void loadAssets();
   }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [healthStatus, pageSize, sortBy, species, typeFilter, zoneId]);
 
   useEffect(() => {
     apiRequest<Zone[]>("/zones")
@@ -323,6 +366,17 @@ export const GreenMapPage = () => {
         <label>
           Species
           <input value={species} onChange={(event) => setSpecies(event.target.value)} placeholder="Oak, Tilia..." />
+        </label>
+        <label>
+          Type
+          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+            <option value="">All</option>
+            {assetTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Health
@@ -559,44 +613,95 @@ export const GreenMapPage = () => {
         </article>
       ) : null}
 
-      <div className="asset-grid">
-        {isLoading ? <p>Loading assets...</p> : null}
-        {!isLoading && assets.length === 0 ? <p>No assets match the current filters.</p> : null}
-        {assets.map((asset) => (
-          <article className="asset-card" key={asset.id}>
-            {getAssetPhotoUrl(asset) ? (
-              <img className="asset-card-photo" src={getAssetPhotoUrl(asset)} alt={asset.commonName ?? asset.species} />
-            ) : null}
-            <div>
-              <p className="eyebrow">{asset.type}</p>
-              <h2>{asset.commonName ?? asset.species}</h2>
-            </div>
-            <dl>
+      <section className="catalog-panel">
+        <div className="catalog-header">
+          <div>
+            <h2>Asset Catalog</h2>
+            <p className="muted-text">
+              Showing {paginatedAssets.length} of {sortedAssets.length} matching assets.
+            </p>
+          </div>
+          <div className="catalog-controls">
+            <label>
+              Sort
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Page size
+              <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>
+                {pageSizeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="asset-catalog-list">
+          {isLoading ? <p>Loading assets...</p> : null}
+          {!isLoading && assets.length === 0 ? <p>No assets match the current filters.</p> : null}
+          {paginatedAssets.map((asset) => (
+            <article className="asset-catalog-card" key={asset.id}>
+              {getAssetPhotoUrl(asset) ? (
+                <img className="asset-catalog-photo" src={getAssetPhotoUrl(asset)} alt={asset.commonName ?? asset.species} />
+              ) : (
+                <div className="asset-catalog-photo asset-catalog-photo-placeholder">{asset.type.slice(0, 1)}</div>
+              )}
               <div>
-                <dt>Species</dt>
-                <dd>{asset.species}</dd>
+                <p className="eyebrow">{asset.type}</p>
+                <h2>{asset.commonName ?? asset.species}</h2>
+                <p>{asset.description ?? "No description has been added."}</p>
               </div>
-              <div>
-                <dt>Health</dt>
-                <dd>{asset.healthStatus}</dd>
+              <dl>
+                <div>
+                  <dt>Species</dt>
+                  <dd>{asset.species}</dd>
+                </div>
+                <div>
+                  <dt>Health</dt>
+                  <dd>{asset.healthStatus}</dd>
+                </div>
+                <div>
+                  <dt>Zone</dt>
+                  <dd>{asset.zone?.name ?? "Unassigned"}</dd>
+                </div>
+                <div>
+                  <dt>Coordinates</dt>
+                  <dd>
+                    {asset.latitude}, {asset.longitude}
+                  </dd>
+                </div>
+              </dl>
+              <div className="button-row">
+                <Link to={`/assets/${asset.id}`}>Open details</Link>
               </div>
-              <div>
-                <dt>Zone</dt>
-                <dd>{asset.zone?.name ?? "Unassigned"}</dd>
-              </div>
-              <div>
-                <dt>Coordinates</dt>
-                <dd>
-                  {asset.latitude}, {asset.longitude}
-                </dd>
-              </div>
-            </dl>
-            <div className="button-row">
-              <Link to={`/assets/${asset.id}`}>Open details</Link>
-            </div>
-          </article>
-        ))}
-      </div>
+            </article>
+          ))}
+        </div>
+        <div className="pagination-row">
+          <button type="button" disabled={currentPage === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+            Previous
+          </button>
+          <span>
+            Page {currentPage} of {pageCount}
+          </span>
+          <button
+            type="button"
+            disabled={currentPage === pageCount}
+            onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+          >
+            Next
+          </button>
+        </div>
+      </section>
     </section>
   );
 };
