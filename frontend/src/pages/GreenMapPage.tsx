@@ -17,6 +17,7 @@ type GreenAsset = {
   longitude: string;
   healthStatus: string;
   lifecycleStatus: string;
+  metadata: { photoUrl?: string } | null;
   zone: { id: string; name: string } | null;
 };
 
@@ -45,8 +46,21 @@ const healthColors: Record<string, string> = {
 const assetTypes = ["TREE", "PARK", "SHRUB", "GARDEN"];
 const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED"];
 const defaultCenter: [number, number] = [42.6977, 23.3219];
+const maxPhotoBytes = 1_000_000;
 
 const getCoordinates = (asset: GreenAsset): [number, number] => [Number(asset.latitude), Number(asset.longitude)];
+const getAssetPhotoUrl = (asset: GreenAsset) =>
+  typeof asset.metadata?.photoUrl === "string" ? asset.metadata.photoUrl : "";
+const getDraftCoordinates = (latitude: string, longitude: string): [number, number] | null => {
+  const parsedLatitude = Number(latitude);
+  const parsedLongitude = Number(longitude);
+
+  if (!Number.isFinite(parsedLatitude) || !Number.isFinite(parsedLongitude)) {
+    return null;
+  }
+
+  return [parsedLatitude, parsedLongitude];
+};
 
 const getMarkerIcon = (healthStatus: string) => {
   const color = healthColors[healthStatus] ?? "#12633f";
@@ -59,6 +73,14 @@ const getMarkerIcon = (healthStatus: string) => {
     popupAnchor: [0, -12]
   });
 };
+
+const draftLocationIcon = L.divIcon({
+  className: "draft-asset-marker",
+  html: "<span></span>",
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+  popupAnchor: [0, -14]
+});
 
 const MapBounds = ({ assets }: MapBoundsProps) => {
   const map = useMap();
@@ -105,12 +127,16 @@ export const GreenMapPage = () => {
   const [assetDescription, setAssetDescription] = useState("");
   const [assetLatitude, setAssetLatitude] = useState("");
   const [assetLongitude, setAssetLongitude] = useState("");
+  const [assetPhotoUrl, setAssetPhotoUrl] = useState("");
   const [assetHealthStatus, setAssetHealthStatus] = useState("HEALTHY");
   const [assetPlantedAt, setAssetPlantedAt] = useState("");
   const [assetZoneId, setAssetZoneId] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
   const [isCreatingAsset, setIsCreatingAsset] = useState(false);
+  const draftCoordinates = getDraftCoordinates(assetLatitude, assetLongitude);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -156,6 +182,53 @@ export const GreenMapPage = () => {
 
   const canManageAssets = hasRole("EMPLOYEE", "MANAGER", "ADMIN");
 
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Location is not available in this browser.");
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setAssetLatitude(position.coords.latitude.toFixed(6));
+        setAssetLongitude(position.coords.longitude.toFixed(6));
+        setIsLocating(false);
+      },
+      () => {
+        setLocationError("Could not read your current location. Check browser permissions.");
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const choosePhotoFile = (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setCreateError("Choose an image file for the asset photo.");
+      return;
+    }
+
+    if (file.size > maxPhotoBytes) {
+      setCreateError("Choose an image under 1 MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAssetPhotoUrl(typeof reader.result === "string" ? reader.result : "");
+      setCreateError(null);
+    };
+    reader.onerror = () => setCreateError("Could not read the selected image.");
+    reader.readAsDataURL(file);
+  };
+
   const createGreenAsset = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -181,7 +254,8 @@ export const GreenMapPage = () => {
           longitude: assetLongitude,
           plantedAt: assetPlantedAt || undefined,
           healthStatus: assetHealthStatus,
-          zoneId: assetZoneId || undefined
+          zoneId: assetZoneId || undefined,
+          photoUrl: assetPhotoUrl.trim() || undefined
         }
       });
 
@@ -191,6 +265,7 @@ export const GreenMapPage = () => {
       setAssetDescription("");
       setAssetLatitude("");
       setAssetLongitude("");
+      setAssetPhotoUrl("");
       setAssetPlantedAt("");
       setAssetZoneId("");
       setAssetType("TREE");
@@ -267,12 +342,25 @@ export const GreenMapPage = () => {
               </Popup>
             </Marker>
           ))}
+          {draftCoordinates ? (
+            <Marker position={draftCoordinates} icon={draftLocationIcon}>
+              <Popup>
+                <div className="map-popup">
+                  <strong>New asset location</strong>
+                  <span>
+                    {assetLatitude}, {assetLongitude}
+                  </span>
+                </div>
+              </Popup>
+            </Marker>
+          ) : null}
         </MapContainer>
       </div>
 
       {canManageAssets ? (
         <article className="panel details-panel">
           <h2>Register Asset</h2>
+          <p className="muted-text">Tap the map or use device GPS, then add the registry details and optional photo.</p>
           <form className="inline-form asset-form" onSubmit={(event) => void createGreenAsset(event)}>
             <div className="form-grid">
               <label>
@@ -334,6 +422,12 @@ export const GreenMapPage = () => {
                   step="0.000001"
                 />
               </label>
+              <div className="field-action">
+                <span>Coordinates</span>
+                <button type="button" className="secondary-action" disabled={isLocating} onClick={useCurrentLocation}>
+                  {isLocating ? "Locating..." : "Use Current Location"}
+                </button>
+              </div>
               <label>
                 Planted
                 <input type="date" value={assetPlantedAt} onChange={(event) => setAssetPlantedAt(event.target.value)} />
@@ -350,6 +444,7 @@ export const GreenMapPage = () => {
                 </select>
               </label>
             </div>
+            {locationError ? <p className="form-error">{locationError}</p> : null}
             <label>
               Description
               <textarea
@@ -359,6 +454,28 @@ export const GreenMapPage = () => {
                 placeholder="Short registry note"
               />
             </label>
+            <div className="photo-registration-grid">
+              <label>
+                Photo URL
+                <input
+                  value={assetPhotoUrl.startsWith("data:") ? "" : assetPhotoUrl}
+                  onChange={(event) => setAssetPhotoUrl(event.target.value)}
+                  placeholder="https://example.com/tree-photo.jpg"
+                />
+              </label>
+              <label>
+                Upload preview photo
+                <input type="file" accept="image/*" onChange={(event) => choosePhotoFile(event.target.files?.[0])} />
+              </label>
+              {assetPhotoUrl ? (
+                <figure className="asset-photo-preview">
+                  <img src={assetPhotoUrl} alt="Selected asset preview" />
+                  <button type="button" className="muted-button" onClick={() => setAssetPhotoUrl("")}>
+                    Remove Photo
+                  </button>
+                </figure>
+              ) : null}
+            </div>
             {createError ? <p className="form-error">{createError}</p> : null}
             {createSuccess ? <p className="form-success">{createSuccess}</p> : null}
             <button type="submit" disabled={isCreatingAsset}>
@@ -373,6 +490,9 @@ export const GreenMapPage = () => {
         {!isLoading && assets.length === 0 ? <p>No assets match the current filters.</p> : null}
         {assets.map((asset) => (
           <article className="asset-card" key={asset.id}>
+            {getAssetPhotoUrl(asset) ? (
+              <img className="asset-card-photo" src={getAssetPhotoUrl(asset)} alt={asset.commonName ?? asset.species} />
+            ) : null}
             <div>
               <p className="eyebrow">{asset.type}</p>
               <h2>{asset.commonName ?? asset.species}</h2>

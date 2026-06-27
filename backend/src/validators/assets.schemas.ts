@@ -2,6 +2,7 @@ import { AssetHealthStatus, AssetLifecycleStatus, GreenAssetType } from "@prisma
 import { z } from "zod";
 
 const coordinateSchema = z.coerce.number();
+const photoUrlSchema = z.string().trim().max(2_000_000).optional();
 
 export const listAssetsQuerySchema = z.object({
   species: z.string().trim().min(1).optional(),
@@ -20,7 +21,8 @@ export const createAssetSchema = z.object({
   plantedAt: z.coerce.date().optional(),
   healthStatus: z.nativeEnum(AssetHealthStatus).default(AssetHealthStatus.HEALTHY),
   lifecycleStatus: z.nativeEnum(AssetLifecycleStatus).default(AssetLifecycleStatus.ACTIVE),
-  zoneId: z.string().trim().min(1).optional()
+  zoneId: z.string().trim().min(1).optional(),
+  photoUrl: photoUrlSchema
 });
 
 export const updateAssetSchema = createAssetSchema.partial().extend({

@@ -5,6 +5,9 @@ import { sseHub } from "../realtime/sseHub.js";
 import type { CreateAssetInput, ListAssetsQuery, UpdateAssetInput } from "../validators/assets.schemas.js";
 import { AppError } from "./users.service.js";
 
+const isJsonObject = (value: Prisma.JsonValue | null | undefined): value is Prisma.JsonObject =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 const assetInclude = {
   zone: {
     select: {
@@ -49,12 +52,15 @@ export const getAssetById = async (assetId: string) => {
 };
 
 export const createAsset = async (input: CreateAssetInput, createdById: string) => {
+  const { photoUrl, ...assetInput } = input;
+
   const asset = await prisma.$transaction(async (tx) => {
     const createdAsset = await tx.greenAsset.create({
       data: {
-        ...input,
+        ...assetInput,
         createdById,
-        plantedAt: input.plantedAt
+        plantedAt: input.plantedAt,
+        metadata: photoUrl ? { photoUrl } : undefined
       },
       include: assetInclude
     });
@@ -82,11 +88,22 @@ export const createAsset = async (input: CreateAssetInput, createdById: string) 
 
 export const updateAsset = async (assetId: string, input: UpdateAssetInput) => {
   const existingAsset = await getAssetById(assetId);
+  const { photoUrl, ...assetInput } = input;
+  const metadata =
+    photoUrl === undefined
+      ? undefined
+      : {
+          ...(isJsonObject(existingAsset.metadata) ? existingAsset.metadata : {}),
+          photoUrl
+        };
 
   const asset = await prisma.$transaction(async (tx) => {
     const updatedAsset = await tx.greenAsset.update({
       where: { id: assetId },
-      data: input,
+      data: {
+        ...assetInput,
+        metadata
+      },
       include: assetInclude
     });
 

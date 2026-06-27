@@ -448,6 +448,22 @@ code {
   box-shadow: 0 2px 8px rgb(0 0 0 / 28%);
 }
 
+.draft-asset-marker {
+  display: grid;
+  place-items: center;
+}
+
+.draft-asset-marker span {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  outline: 3px solid #2f855a;
+  background: #9ae6b4;
+  box-shadow: 0 4px 12px rgb(18 99 63 / 34%);
+}
+
 .map-popup {
   display: grid;
   gap: 0.25rem;
@@ -472,6 +488,14 @@ code {
   border-radius: 8px;
   background: #ffffff;
   padding: 1rem;
+}
+
+.asset-card-photo {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #edf2ef;
 }
 
 .asset-card h2 {
@@ -1107,6 +1131,73 @@ code {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.85rem;
+}
+
+.field-action {
+  display: grid;
+  gap: 0.35rem;
+  align-content: end;
+  color: #33483f;
+  font-weight: 700;
+}
+
+.secondary-action,
+.inline-form .secondary-action,
+.action-stack .inline-form .secondary-action {
+  width: fit-content;
+  border: 1px solid #b9d7c7;
+  border-radius: 6px;
+  padding: 0.7rem 0.8rem;
+  color: #12633f;
+  background: #e5f2eb;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.secondary-action:hover:not(:disabled) {
+  border-color: #12633f;
+  background: #d7ecdf;
+}
+
+.secondary-action:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.photo-registration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+  align-items: end;
+}
+
+.asset-photo-preview {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.asset-photo-preview img {
+  width: 100%;
+  max-height: 220px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #edf2ef;
+}
+
+.asset-photo-preview .muted-button,
+.inline-form .asset-photo-preview .muted-button {
+  width: fit-content;
+  border: 1px solid #c9d6cf;
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  color: #33483f;
+  background: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
 }
 
 .form-success {
