@@ -49,13 +49,26 @@ export const getAssetById = async (assetId: string) => {
 };
 
 export const createAsset = async (input: CreateAssetInput, createdById: string) => {
-  const asset = await prisma.greenAsset.create({
-    data: {
-      ...input,
-      createdById,
-      plantedAt: input.plantedAt
-    },
-    include: assetInclude
+  const asset = await prisma.$transaction(async (tx) => {
+    const createdAsset = await tx.greenAsset.create({
+      data: {
+        ...input,
+        createdById,
+        plantedAt: input.plantedAt
+      },
+      include: assetInclude
+    });
+
+    await tx.assetHealthLog.create({
+      data: {
+        assetId: createdAsset.id,
+        status: createdAsset.healthStatus,
+        source: "registry",
+        notes: "Initial registry health status."
+      }
+    });
+
+    return createdAsset;
   });
 
   sseHub.broadcast("asset.updated", {
@@ -68,12 +81,27 @@ export const createAsset = async (input: CreateAssetInput, createdById: string) 
 };
 
 export const updateAsset = async (assetId: string, input: UpdateAssetInput) => {
-  await getAssetById(assetId);
+  const existingAsset = await getAssetById(assetId);
 
-  const asset = await prisma.greenAsset.update({
-    where: { id: assetId },
-    data: input,
-    include: assetInclude
+  const asset = await prisma.$transaction(async (tx) => {
+    const updatedAsset = await tx.greenAsset.update({
+      where: { id: assetId },
+      data: input,
+      include: assetInclude
+    });
+
+    if (input.healthStatus && input.healthStatus !== existingAsset.healthStatus) {
+      await tx.assetHealthLog.create({
+        data: {
+          assetId,
+          status: input.healthStatus,
+          source: "registry",
+          notes: "Registry health status updated."
+        }
+      });
+    }
+
+    return updatedAsset;
   });
 
   sseHub.broadcast("asset.updated", {

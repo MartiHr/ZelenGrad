@@ -390,8 +390,11 @@ export const AssetDetailsPage = () => {
         }
       });
 
+      const updatedHistory = await apiRequest<AssetHistory>(`/assets/${asset.id}/history`);
+
       setAsset(updatedAsset);
       setAssetForm(createAssetFormState(updatedAsset));
+      setHistory(updatedHistory);
       setAssetUpdateSuccess("Asset registry updated.");
     } catch (caughtError) {
       setAssetUpdateError(caughtError instanceof ApiError ? caughtError.message : "Could not update asset.");

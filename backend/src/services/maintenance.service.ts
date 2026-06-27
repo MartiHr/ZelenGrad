@@ -87,12 +87,28 @@ const buildResponsibleZoneFilter = (employeeId: string): Prisma.MaintenanceTaskW
   ]
 });
 
+const buildEmployeeWorklistFilter = (
+  employeeId: string,
+  responsibleZoneOnly?: boolean
+): Prisma.MaintenanceTaskWhereInput => {
+  if (responsibleZoneOnly) {
+    return buildResponsibleZoneFilter(employeeId);
+  }
+
+  return {
+    OR: [
+      { assignedToId: employeeId },
+      {
+        AND: [{ assignedToId: null }, buildResponsibleZoneFilter(employeeId)]
+      }
+    ]
+  };
+};
+
 export const listMaintenanceTasks = async (query: ListMaintenanceQuery, currentUserId: string, canViewAll: boolean) => {
   const visibilityFilter: Prisma.MaintenanceTaskWhereInput = canViewAll
     ? {}
-    : query.responsibleZoneOnly
-      ? buildResponsibleZoneFilter(currentUserId)
-      : { assignedToId: currentUserId };
+    : buildEmployeeWorklistFilter(currentUserId, query.responsibleZoneOnly);
   const responsibilityFilter =
     canViewAll && query.responsibleEmployeeId ? buildResponsibleZoneFilter(query.responsibleEmployeeId) : {};
 
@@ -130,7 +146,18 @@ export const getMaintenanceTaskById = async (taskId: string) => {
 export const getMaintenanceTaskForUser = async (taskId: string, currentUserId: string, canViewAll: boolean) => {
   const task = await getMaintenanceTaskById(taskId);
 
-  if (!canViewAll && task.assignedToId !== currentUserId) {
+  if (canViewAll || task.assignedToId === currentUserId) {
+    return task;
+  }
+
+  const responsibleZoneTaskCount = await prisma.maintenanceTask.count({
+    where: {
+      id: taskId,
+      ...buildResponsibleZoneFilter(currentUserId)
+    }
+  });
+
+  if (responsibleZoneTaskCount === 0) {
     throw new AppError(403, "You do not have access to this maintenance task.");
   }
 
