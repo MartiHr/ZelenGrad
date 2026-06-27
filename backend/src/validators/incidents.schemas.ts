@@ -6,6 +6,8 @@ const coordinateSchema = z.coerce.number();
 export const listIncidentsQuerySchema = z.object({
   status: z.nativeEnum(IncidentStatus).optional(),
   priority: z.nativeEnum(Priority).optional(),
+  responsibleEmployeeId: z.string().trim().min(1).optional(),
+  responsibleZoneOnly: z.coerce.boolean().optional(),
   assetId: z.string().trim().min(1).optional(),
   zoneId: z.string().trim().min(1).optional()
 });

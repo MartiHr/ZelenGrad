@@ -22,9 +22,12 @@ incidentsRouter.get(
   requireAuth,
   requireRole(...reviewerRoles),
   validateQuery(listIncidentsQuerySchema),
-  async (_request, response, next) => {
+  async (request, response, next) => {
     try {
-      response.json(await listIncidents(response.locals.validatedQuery as ListIncidentsQuery));
+      const canViewAll = request.user!.role === UserRole.MANAGER || request.user!.role === UserRole.ADMIN;
+      response.json(
+        await listIncidents(response.locals.validatedQuery as ListIncidentsQuery, request.user!.id, canViewAll)
+      );
     } catch (error) {
       next(error);
     }

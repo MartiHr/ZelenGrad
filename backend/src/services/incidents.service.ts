@@ -43,13 +43,44 @@ const incidentInclude = {
   }
 } satisfies Prisma.IncidentReportInclude;
 
-export const listIncidents = async (query: ListIncidentsQuery) => {
+const buildResponsibleZoneFilter = (employeeId: string): Prisma.IncidentReportWhereInput => ({
+  OR: [
+    {
+      zone: {
+        assignments: {
+          some: { employeeId }
+        }
+      }
+    },
+    {
+      asset: {
+        zone: {
+          assignments: {
+            some: { employeeId }
+          }
+        }
+      }
+    }
+  ]
+});
+
+export const listIncidents = async (query: ListIncidentsQuery, currentUserId: string, canViewAll: boolean) => {
+  const responsibilityFilter =
+    canViewAll && query.responsibleEmployeeId ? buildResponsibleZoneFilter(query.responsibleEmployeeId) : {};
+  const reviewerScopeFilter = !canViewAll && query.responsibleZoneOnly ? buildResponsibleZoneFilter(currentUserId) : {};
+
   return prisma.incidentReport.findMany({
     where: {
-      status: query.status,
-      priority: query.priority,
-      assetId: query.assetId,
-      zoneId: query.zoneId
+      AND: [
+        {
+          status: query.status,
+          priority: query.priority,
+          assetId: query.assetId,
+          zoneId: query.zoneId
+        },
+        responsibilityFilter,
+        reviewerScopeFilter
+      ]
     },
     orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
     include: incidentInclude

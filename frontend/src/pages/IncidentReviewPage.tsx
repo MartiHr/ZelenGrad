@@ -19,15 +19,35 @@ type Incident = {
   verifiedBy: { id: string; name: string; email: string } | null;
 };
 
+type Zone = {
+  id: string;
+  name: string;
+};
+
+type StaffUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+};
+
 const statuses = ["REPORTED", "VERIFIED", "IN_PROGRESS", "RESOLVED", "REJECTED"];
+const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 
 export const IncidentReviewPage = () => {
-  const { token } = useAuth();
+  const { hasRole, token } = useAuth();
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [status, setStatus] = useState("");
+  const [priority, setPriority] = useState("");
+  const [zoneId, setZoneId] = useState("");
+  const [responsibleEmployeeId, setResponsibleEmployeeId] = useState("");
+  const [reviewScope, setReviewScope] = useState("all");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const canManageIncidents = hasRole("MANAGER", "ADMIN");
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -36,9 +56,25 @@ export const IncidentReviewPage = () => {
       params.set("status", status);
     }
 
+    if (priority) {
+      params.set("priority", priority);
+    }
+
+    if (zoneId) {
+      params.set("zoneId", zoneId);
+    }
+
+    if (canManageIncidents && responsibleEmployeeId) {
+      params.set("responsibleEmployeeId", responsibleEmployeeId);
+    }
+
+    if (!canManageIncidents && reviewScope === "responsible-zones") {
+      params.set("responsibleZoneOnly", "true");
+    }
+
     const value = params.toString();
     return value ? `?${value}` : "";
-  }, [status]);
+  }, [canManageIncidents, priority, responsibleEmployeeId, reviewScope, status, zoneId]);
 
   const loadIncidents = async () => {
     if (!token) {
@@ -60,6 +96,25 @@ export const IncidentReviewPage = () => {
   useEffect(() => {
     void loadIncidents();
   }, [query, token]);
+
+  useEffect(() => {
+    apiRequest<Zone[]>("/zones")
+      .then(setZones)
+      .catch(() => setZones([]));
+  }, []);
+
+  useEffect(() => {
+    if (!token || !canManageIncidents) {
+      setStaffUsers([]);
+      return;
+    }
+
+    apiRequest<StaffUser[]>("/users/staff", { token })
+      .then(setStaffUsers)
+      .catch((caughtError) => {
+        setError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
+      });
+  }, [canManageIncidents, token]);
 
   const updateIncidentStatus = async (incidentId: string, nextStatus: string) => {
     if (!token) {
@@ -100,7 +155,86 @@ export const IncidentReviewPage = () => {
             ))}
           </select>
         </label>
+        <label>
+          Priority
+          <select value={priority} onChange={(event) => setPriority(event.target.value)}>
+            <option value="">All</option>
+            {priorities.map((priorityOption) => (
+              <option key={priorityOption} value={priorityOption}>
+                {priorityOption}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Zone
+          <select value={zoneId} onChange={(event) => setZoneId(event.target.value)}>
+            <option value="">All zones</option>
+            {zones.map((zone) => (
+              <option key={zone.id} value={zone.id}>
+                {zone.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {canManageIncidents ? (
+          <label>
+            Responsible zone
+            <select value={responsibleEmployeeId} onChange={(event) => setResponsibleEmployeeId(event.target.value)}>
+              <option value="">Any responsible staff</option>
+              {staffUsers.map((staffUser) => (
+                <option key={staffUser.id} value={staffUser.id}>
+                  {staffUser.name} ({staffUser.role})
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label>
+            Scope
+            <select value={reviewScope} onChange={(event) => setReviewScope(event.target.value)}>
+              <option value="all">All incidents</option>
+              <option value="responsible-zones">My responsible zones</option>
+            </select>
+          </label>
+        )}
       </div>
+
+      {canManageIncidents && incidents.length ? (
+        <div className="dashboard-grid">
+          <article className="panel details-panel">
+            <h2>By Zone</h2>
+            <dl className="count-list">
+              {Object.entries(
+                incidents.reduce<Record<string, number>>((counts, incident) => {
+                  const key = incident.zone?.name ?? "Unassigned";
+                  return { ...counts, [key]: (counts[key] ?? 0) + 1 };
+                }, {})
+              ).map(([label, count]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{count}</dd>
+                </div>
+              ))}
+            </dl>
+          </article>
+          <article className="panel details-panel">
+            <h2>By Priority</h2>
+            <dl className="count-list">
+              {Object.entries(
+                incidents.reduce<Record<string, number>>((counts, incident) => {
+                  return { ...counts, [incident.priority]: (counts[incident.priority] ?? 0) + 1 };
+                }, {})
+              ).map(([label, count]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{count}</dd>
+                </div>
+              ))}
+            </dl>
+          </article>
+        </div>
+      ) : null}
 
       {error ? <p className="form-error">{error}</p> : null}
 
