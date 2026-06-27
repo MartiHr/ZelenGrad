@@ -8,11 +8,13 @@ import {
   createMaintenanceTask,
   getMaintenanceTaskForUser,
   listMaintenanceTasks,
+  updateMaintenanceTask,
   updateMaintenanceTaskStatus
 } from "../services/maintenance.service.js";
 import {
   createMaintenanceTaskSchema,
   listMaintenanceQuerySchema,
+  updateMaintenanceTaskSchema,
   updateMaintenanceStatusSchema
 } from "../validators/maintenance.schemas.js";
 import type { ListMaintenanceQuery } from "../validators/maintenance.schemas.js";
@@ -68,6 +70,27 @@ maintenanceRouter.get(
 
       const canViewAll = request.user!.role === UserRole.MANAGER || request.user!.role === UserRole.ADMIN;
       response.json(await getMaintenanceTaskForUser(taskId, request.user!.id, canViewAll));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+maintenanceRouter.put(
+  "/:taskId",
+  requireAuth,
+  requireRole(...managerRoles),
+  validateBody(updateMaintenanceTaskSchema),
+  async (request, response, next) => {
+    try {
+      const { taskId } = request.params;
+
+      if (typeof taskId !== "string") {
+        response.status(400).json({ error: "Validation Error", message: "Task id is required." });
+        return;
+      }
+
+      response.json(await updateMaintenanceTask(taskId, request.body));
     } catch (error) {
       next(error);
     }

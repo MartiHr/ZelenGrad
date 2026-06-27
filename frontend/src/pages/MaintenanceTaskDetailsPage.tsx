@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
@@ -40,8 +40,39 @@ type MaintenanceTask = {
   logs: MaintenanceLog[];
 };
 
+type GreenAsset = {
+  id: string;
+  commonName: string | null;
+  species: string;
+  healthStatus: string;
+};
+
+type Zone = {
+  id: string;
+  name: string;
+};
+
+type StaffUser = UserSummary & {
+  role: string;
+};
+
+type TaskEditForm = {
+  title: string;
+  description: string;
+  type: string;
+  priority: string;
+  scheduledFor: string;
+  dueAt: string;
+  recurrenceRule: string;
+  assetId: string;
+  zoneId: string;
+  assignedToId: string;
+};
+
 const statuses = ["ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED", "REMOVED"];
+const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+const maintenanceTypes = ["WATERING", "PRUNING", "INSPECTION", "TREATMENT", "CLEANUP", "REMOVAL", "OTHER"];
 
 const formatDateTime = (value: string | null) => {
   if (!value) {
@@ -56,15 +87,45 @@ const formatDateTime = (value: string | null) => {
 
 const formatUser = (user: UserSummary | null) => (user ? `${user.name} (${user.email})` : "Unassigned");
 
+const formatDateTimeInput = (value: string | null) => {
+  if (!value) {
+    return "";
+  }
+
+  return value.slice(0, 16);
+};
+
+const createTaskEditForm = (task: MaintenanceTask): TaskEditForm => ({
+  title: task.title,
+  description: task.description ?? "",
+  type: task.type,
+  priority: task.priority,
+  scheduledFor: formatDateTimeInput(task.scheduledFor),
+  dueAt: formatDateTimeInput(task.dueAt),
+  recurrenceRule: task.recurrenceRule ?? "",
+  assetId: task.asset?.id ?? "",
+  zoneId: task.zone?.id ?? "",
+  assignedToId: task.assignedTo?.id ?? ""
+});
+
 export const MaintenanceTaskDetailsPage = () => {
   const { taskId } = useParams();
-  const { token } = useAuth();
+  const { hasRole, token } = useAuth();
   const [task, setTask] = useState<MaintenanceTask | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [resultingHealth, setResultingHealth] = useState("");
+  const [editForm, setEditForm] = useState<TaskEditForm | null>(null);
+  const [assets, setAssets] = useState<GreenAsset[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSuccess, setEditSuccess] = useState<string | null>(null);
+  const [isSavingTask, setIsSavingTask] = useState(false);
+  const [referenceError, setReferenceError] = useState<string | null>(null);
+  const canManageTasks = hasRole("MANAGER", "ADMIN");
 
   useEffect(() => {
     if (!taskId || !token) {
@@ -77,12 +138,40 @@ export const MaintenanceTaskDetailsPage = () => {
     setError(null);
 
     apiRequest<MaintenanceTask>(`/maintenance/${taskId}`, { token })
-      .then(setTask)
+      .then((taskResponse) => {
+        setTask(taskResponse);
+        setEditForm(createTaskEditForm(taskResponse));
+      })
       .catch((caughtError) => {
         setError(caughtError instanceof ApiError ? caughtError.message : "Could not load maintenance task.");
       })
       .finally(() => setIsLoading(false));
   }, [taskId, token]);
+
+  useEffect(() => {
+    if (!token || !canManageTasks) {
+      setAssets([]);
+      setZones([]);
+      setStaffUsers([]);
+      return;
+    }
+
+    setReferenceError(null);
+
+    Promise.all([
+      apiRequest<GreenAsset[]>("/assets"),
+      apiRequest<Zone[]>("/zones"),
+      apiRequest<StaffUser[]>("/users/staff", { token })
+    ])
+      .then(([assetsResponse, zonesResponse, staffResponse]) => {
+        setAssets(assetsResponse);
+        setZones(zonesResponse);
+        setStaffUsers(staffResponse);
+      })
+      .catch((caughtError) => {
+        setReferenceError(caughtError instanceof ApiError ? caughtError.message : "Could not load editor options.");
+      });
+  }, [canManageTasks, token]);
 
   const updateTaskStatus = async (status: string) => {
     if (!task || !token) {
@@ -110,6 +199,49 @@ export const MaintenanceTaskDetailsPage = () => {
       setError(caughtError instanceof ApiError ? caughtError.message : "Could not update task.");
     } finally {
       setUpdatingStatus(null);
+    }
+  };
+
+  const updateEditForm = (patch: Partial<TaskEditForm>) => {
+    setEditForm((current) => (current ? { ...current, ...patch } : current));
+  };
+
+  const saveTask = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!task || !token || !editForm) {
+      return;
+    }
+
+    setIsSavingTask(true);
+    setEditError(null);
+    setEditSuccess(null);
+
+    try {
+      const updatedTask = await apiRequest<MaintenanceTask>(`/maintenance/${task.id}`, {
+        method: "PUT",
+        token,
+        body: {
+          title: editForm.title,
+          description: editForm.description.trim() || null,
+          type: editForm.type,
+          priority: editForm.priority,
+          scheduledFor: editForm.scheduledFor || null,
+          dueAt: editForm.dueAt || null,
+          recurrenceRule: editForm.recurrenceRule.trim() || null,
+          assetId: editForm.assetId || null,
+          zoneId: editForm.zoneId || null,
+          assignedToId: editForm.assignedToId || null
+        }
+      });
+
+      setTask(updatedTask);
+      setEditForm(createTaskEditForm(updatedTask));
+      setEditSuccess("Task updated.");
+    } catch (caughtError) {
+      setEditError(caughtError instanceof ApiError ? caughtError.message : "Could not update maintenance task.");
+    } finally {
+      setIsSavingTask(false);
     }
   };
 
@@ -146,6 +278,126 @@ export const MaintenanceTaskDetailsPage = () => {
       </div>
 
       {error ? <p className="form-error">{error}</p> : null}
+
+      {canManageTasks && editForm ? (
+        <article className="panel details-panel">
+          <h2>Task Editor</h2>
+          <form className="inline-form asset-form" onSubmit={(event) => void saveTask(event)}>
+            <div className="form-grid">
+              <label>
+                Type
+                <select value={editForm.type} onChange={(event) => updateEditForm({ type: event.target.value })}>
+                  {maintenanceTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Priority
+                <select
+                  value={editForm.priority}
+                  onChange={(event) => updateEditForm({ priority: event.target.value })}
+                >
+                  {priorities.map((priority) => (
+                    <option key={priority} value={priority}>
+                      {priority}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Title
+                <input
+                  value={editForm.title}
+                  onChange={(event) => updateEditForm({ title: event.target.value })}
+                  minLength={3}
+                  maxLength={160}
+                  required
+                />
+              </label>
+              <label>
+                Assignee
+                <select
+                  value={editForm.assignedToId}
+                  onChange={(event) => updateEditForm({ assignedToId: event.target.value })}
+                >
+                  <option value="">Unassigned</option>
+                  {staffUsers.map((staffUser) => (
+                    <option key={staffUser.id} value={staffUser.id}>
+                      {staffUser.name} ({staffUser.role})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Asset target
+                <select value={editForm.assetId} onChange={(event) => updateEditForm({ assetId: event.target.value })}>
+                  <option value="">No asset target</option>
+                  {assets.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.commonName ?? asset.species}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Zone target
+                <select value={editForm.zoneId} onChange={(event) => updateEditForm({ zoneId: event.target.value })}>
+                  <option value="">No zone target</option>
+                  {zones.map((zone) => (
+                    <option key={zone.id} value={zone.id}>
+                      {zone.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Scheduled for
+                <input
+                  type="datetime-local"
+                  value={editForm.scheduledFor}
+                  onChange={(event) => updateEditForm({ scheduledFor: event.target.value })}
+                />
+              </label>
+              <label>
+                Due at
+                <input
+                  type="datetime-local"
+                  value={editForm.dueAt}
+                  onChange={(event) => updateEditForm({ dueAt: event.target.value })}
+                />
+              </label>
+              <label>
+                Recurrence
+                <input
+                  value={editForm.recurrenceRule}
+                  onChange={(event) => updateEditForm({ recurrenceRule: event.target.value })}
+                  maxLength={160}
+                  placeholder="FREQ=WEEKLY;INTERVAL=1"
+                />
+              </label>
+            </div>
+            <label>
+              Description
+              <textarea
+                value={editForm.description}
+                onChange={(event) => updateEditForm({ description: event.target.value })}
+                maxLength={1000}
+              />
+            </label>
+
+            {referenceError ? <p className="form-error">{referenceError}</p> : null}
+            {editError ? <p className="form-error">{editError}</p> : null}
+            {editSuccess ? <p className="form-success">{editSuccess}</p> : null}
+
+            <button type="submit" disabled={isSavingTask}>
+              {isSavingTask ? "Saving..." : "Save Task"}
+            </button>
+          </form>
+        </article>
+      ) : null}
 
       <div className="details-grid">
         <article className="panel details-panel">

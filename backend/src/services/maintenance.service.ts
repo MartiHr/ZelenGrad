@@ -5,6 +5,7 @@ import { sseHub } from "../realtime/sseHub.js";
 import type {
   CreateMaintenanceTaskInput,
   ListMaintenanceQuery,
+  UpdateMaintenanceTaskInput,
   UpdateMaintenanceStatusInput
 } from "../validators/maintenance.schemas.js";
 import { AppError } from "./users.service.js";
@@ -116,6 +117,38 @@ export const createMaintenanceTask = async (input: CreateMaintenanceTaskInput, c
     title: task.title,
     status: task.status,
     action: "created",
+    updatedAt: task.updatedAt
+  });
+
+  return task;
+};
+
+export const updateMaintenanceTask = async (taskId: string, input: UpdateMaintenanceTaskInput) => {
+  const existingTask = await getMaintenanceTaskById(taskId);
+  const nextAssetId = input.assetId === undefined ? existingTask.assetId : input.assetId;
+  const nextZoneId = input.zoneId === undefined ? existingTask.zoneId : input.zoneId;
+
+  if (!nextAssetId && !nextZoneId) {
+    throw new AppError(400, "A maintenance task must target either an asset or a zone.");
+  }
+
+  const task = await prisma.maintenanceTask.update({
+    where: { id: taskId },
+    data: {
+      ...input,
+      status:
+        input.assignedToId && existingTask.status === MaintenanceTaskStatus.PLANNED
+          ? MaintenanceTaskStatus.ASSIGNED
+          : undefined
+    },
+    include: taskDetailInclude
+  });
+
+  sseHub.broadcast("maintenance.updated", {
+    taskId: task.id,
+    title: task.title,
+    status: task.status,
+    action: "updated",
     updatedAt: task.updatedAt
   });
 

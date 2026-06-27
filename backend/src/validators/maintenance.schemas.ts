@@ -33,6 +33,25 @@ export const updateMaintenanceStatusSchema = z.object({
   resultingHealth: z.nativeEnum(AssetHealthStatus).optional()
 });
 
+export const updateMaintenanceTaskSchema = z
+  .object({
+    title: z.string().trim().min(3).max(160).optional(),
+    description: z.string().trim().max(1000).nullable().optional(),
+    type: z.nativeEnum(MaintenanceTaskType).optional(),
+    priority: z.nativeEnum(Priority).optional(),
+    scheduledFor: z.coerce.date().nullable().optional(),
+    dueAt: z.coerce.date().nullable().optional(),
+    recurrenceRule: z.string().trim().max(160).nullable().optional(),
+    assetId: z.string().trim().min(1).nullable().optional(),
+    zoneId: z.string().trim().min(1).nullable().optional(),
+    assignedToId: z.string().trim().min(1).nullable().optional()
+  })
+  .refine((input) => input.assetId !== null || input.zoneId !== null, {
+    message: "A maintenance task must keep either an asset or a zone target.",
+    path: ["assetId"]
+  });
+
 export type ListMaintenanceQuery = z.infer<typeof listMaintenanceQuerySchema>;
 export type CreateMaintenanceTaskInput = z.infer<typeof createMaintenanceTaskSchema>;
 export type UpdateMaintenanceStatusInput = z.infer<typeof updateMaintenanceStatusSchema>;
+export type UpdateMaintenanceTaskInput = z.infer<typeof updateMaintenanceTaskSchema>;
