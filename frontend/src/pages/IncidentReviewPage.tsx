@@ -34,6 +34,30 @@ type StaffUser = {
 
 const statuses = ["REPORTED", "VERIFIED", "IN_PROGRESS", "RESOLVED", "REJECTED"];
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+const statusHints: Record<string, string> = {
+  REPORTED: "New report waiting for triage.",
+  VERIFIED: "Confirmed and ready for action.",
+  IN_PROGRESS: "Field response is underway.",
+  RESOLVED: "Closed after response.",
+  REJECTED: "Closed without action."
+};
+
+const getNextStatuses = (status: string) => {
+  switch (status) {
+    case "REPORTED":
+      return ["VERIFIED", "REJECTED"];
+    case "VERIFIED":
+      return ["IN_PROGRESS", "RESOLVED", "REJECTED", "REPORTED"];
+    case "IN_PROGRESS":
+      return ["RESOLVED", "REJECTED", "VERIFIED"];
+    case "RESOLVED":
+      return ["IN_PROGRESS", "REPORTED"];
+    case "REJECTED":
+      return ["REPORTED", "VERIFIED"];
+    default:
+      return statuses.filter((nextStatus) => nextStatus !== status);
+  }
+};
 
 export const IncidentReviewPage = () => {
   const { hasRole, token } = useAuth();
@@ -237,17 +261,32 @@ export const IncidentReviewPage = () => {
 
       {error ? <p className="form-error">{error}</p> : null}
 
+      <div className="worklist-summary">
+        <span>{incidents.length} visible incidents</span>
+        <span>{incidents.filter((incident) => incident.status === "REPORTED").length} reported</span>
+        <span>{incidents.filter((incident) => incident.status === "IN_PROGRESS").length} in progress</span>
+        <span>{incidents.filter((incident) => incident.priority === "URGENT").length} urgent</span>
+      </div>
+
       <div className="incident-list">
         {isLoading ? <p>Loading incidents...</p> : null}
         {!isLoading && incidents.length === 0 ? <p>No incidents match the current filters.</p> : null}
-        {incidents.map((incident) => (
-          <article className="incident-card" key={incident.id}>
+        {incidents.map((incident) => {
+          const nextStatuses = getNextStatuses(incident.status);
+          const isUpdating = updatingId === incident.id;
+
+          return (
+          <article className={`incident-card status-${incident.status.toLowerCase()}`} key={incident.id}>
             <header>
               <div>
                 <p className="eyebrow">{incident.type}</p>
                 <h2>{incident.title}</h2>
+                <p className="muted-text">{statusHints[incident.status] ?? "Incident report"}</p>
               </div>
-              <span className={`badge ${incident.priority.toLowerCase()}`}>{incident.priority}</span>
+              <div className="task-chip-row">
+                <span className={`badge status-badge ${incident.status.toLowerCase()}`}>{incident.status}</span>
+                <span className={`badge ${incident.priority.toLowerCase()}`}>{incident.priority}</span>
+              </div>
             </header>
             <p>{incident.description}</p>
             <dl>
@@ -267,22 +306,27 @@ export const IncidentReviewPage = () => {
                 <dt>Reporter</dt>
                 <dd>{incident.reporter?.name ?? "Unknown"}</dd>
               </div>
+              <div>
+                <dt>Updated</dt>
+                <dd>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(incident.updatedAt))}</dd>
+              </div>
             </dl>
             <div className="button-row">
               <Link to={`/incidents/${incident.id}`}>Open details</Link>
-              {statuses.map((statusOption) => (
+              {nextStatuses.map((statusOption) => (
                 <button
                   key={statusOption}
                   type="button"
                   disabled={updatingId === incident.id || incident.status === statusOption}
                   onClick={() => void updateIncidentStatus(incident.id, statusOption)}
                 >
-                  {statusOption}
+                  {isUpdating ? "Updating..." : statusOption}
                 </button>
               ))}
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

@@ -47,6 +47,30 @@ type IncidentEditForm = {
 
 const statuses = ["REPORTED", "VERIFIED", "IN_PROGRESS", "RESOLVED", "REJECTED"];
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+const statusHints: Record<string, string> = {
+  REPORTED: "New report waiting for triage.",
+  VERIFIED: "Confirmed and ready for action.",
+  IN_PROGRESS: "Field response is underway.",
+  RESOLVED: "Closed after response.",
+  REJECTED: "Closed without action."
+};
+
+const getNextStatuses = (status: string) => {
+  switch (status) {
+    case "REPORTED":
+      return ["VERIFIED", "REJECTED"];
+    case "VERIFIED":
+      return ["IN_PROGRESS", "RESOLVED", "REJECTED", "REPORTED"];
+    case "IN_PROGRESS":
+      return ["RESOLVED", "REJECTED", "VERIFIED"];
+    case "RESOLVED":
+      return ["IN_PROGRESS", "REPORTED"];
+    case "REJECTED":
+      return ["REPORTED", "VERIFIED"];
+    default:
+      return statuses.filter((nextStatus) => nextStatus !== status);
+  }
+};
 
 const createIncidentEditForm = (incident: Incident): IncidentEditForm => ({
   title: incident.title,
@@ -203,6 +227,8 @@ export const IncidentDetailsPage = () => {
     );
   }
 
+  const nextStatuses = getNextStatuses(incident.status);
+
   return (
     <section className="page">
       <div className="details-header">
@@ -210,6 +236,11 @@ export const IncidentDetailsPage = () => {
           <p className="eyebrow">{incident.type}</p>
           <h1>{incident.title}</h1>
           <p>{incident.description}</p>
+          <div className="status-chip-row">
+            <span className={`status-chip incident-${incident.status.toLowerCase()}`}>{incident.status}</span>
+            <span className={`status-chip priority-${incident.priority.toLowerCase()}`}>{incident.priority}</span>
+            <span className="status-chip">{incident.zone?.name ?? "Unassigned zone"}</span>
+          </div>
         </div>
         <Link to="/incidents">Back to incidents</Link>
       </div>
@@ -301,6 +332,7 @@ export const IncidentDetailsPage = () => {
       <div className="details-grid">
         <article className="panel details-panel">
           <h2>Review</h2>
+          <p className="muted-text">{statusHints[incident.status] ?? "Incident report"}</p>
           <dl>
             <div>
               <dt>Status</dt>
@@ -328,7 +360,7 @@ export const IncidentDetailsPage = () => {
             </div>
           </dl>
           <div className="button-row">
-            {statuses.map((status) => (
+            {nextStatuses.map((status) => (
               <button
                 key={status}
                 type="button"
@@ -338,6 +370,7 @@ export const IncidentDetailsPage = () => {
                 {updatingStatus === status ? "Updating..." : status}
               </button>
             ))}
+            {nextStatuses.length === 0 ? <span className="muted-text">No status actions available.</span> : null}
           </div>
         </article>
 

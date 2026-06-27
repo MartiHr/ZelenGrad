@@ -728,6 +728,18 @@ code {
   padding: 1rem;
 }
 
+.incident-card.status-in_progress {
+  border-color: #ead79b;
+}
+
+.incident-card.status-resolved {
+  border-color: #b9d7c7;
+}
+
+.incident-card.status-rejected {
+  opacity: 0.8;
+}
+
 .incident-card header {
   display: flex;
   gap: 1rem;
@@ -798,6 +810,42 @@ code {
 .status-badge.cancelled {
   color: #7a2020;
   background: #f7dddd;
+}
+
+.status-badge.reported,
+.status-chip.incident-reported {
+  color: #40534a;
+  background: #edf2ef;
+}
+
+.status-badge.verified,
+.status-chip.incident-verified {
+  color: #12633f;
+  background: #e5f2eb;
+}
+
+.status-chip.incident-in_progress {
+  color: #8a5a12;
+  background: #fff4d8;
+}
+
+.status-badge.resolved,
+.status-chip.incident-resolved {
+  color: #155724;
+  background: #d7f3df;
+}
+
+.status-badge.rejected,
+.status-chip.incident-rejected {
+  color: #7a2020;
+  background: #f7dddd;
+}
+
+.status-chip.priority-high,
+.status-chip.priority-urgent {
+  color: #7a2020;
+  background: #f7dddd;
+  border-color: #d8b4b4;
 }
 
 .button-row {
