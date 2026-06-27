@@ -20,6 +20,28 @@ type ApiOptions = {
   token?: string | null;
 };
 
+const getErrorMessage = (data: unknown) => {
+  if (typeof data !== "object" || data === null) {
+    return "Request failed.";
+  }
+
+  const payload = data as { message?: unknown; issues?: unknown };
+
+  if (typeof payload.message === "string" && payload.message.trim()) {
+    return payload.message;
+  }
+
+  if (typeof payload.issues === "object" && payload.issues !== null) {
+    for (const [field, errors] of Object.entries(payload.issues as Record<string, unknown>)) {
+      if (Array.isArray(errors) && typeof errors[0] === "string") {
+        return `${field}: ${errors[0]}`;
+      }
+    }
+  }
+
+  return "Request failed.";
+};
+
 export const apiRequest = async <T>(path: string, options: ApiOptions = {}) => {
   const response = await fetch(`${apiConfig.baseUrl}${path}`, {
     method: options.method ?? "GET",
@@ -37,7 +59,7 @@ export const apiRequest = async <T>(path: string, options: ApiOptions = {}) => {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new ApiError(response.status, data?.message ?? "Request failed.");
+    throw new ApiError(response.status, getErrorMessage(data));
   }
 
   return data as T;
