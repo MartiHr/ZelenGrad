@@ -481,6 +481,19 @@ code {
   font-weight: 800;
 }
 
+.map-popup-button {
+  width: fit-content;
+  border: 1px solid #b9d7c7;
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  color: #12633f;
+  background: #e5f2eb;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .asset-card {
   display: grid;
   gap: 1rem;

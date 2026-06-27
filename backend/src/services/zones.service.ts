@@ -62,8 +62,13 @@ export const getManagedZoneById = async (zoneId: string) => {
 };
 
 export const createZone = async (input: CreateZoneInput) => {
+  const { boundary, ...zoneInput } = input;
+
   return prisma.zone.create({
-    data: input,
+    data: {
+      ...zoneInput,
+      boundary: boundary === undefined ? undefined : (boundary as Prisma.InputJsonValue)
+    },
     include: zoneManagementInclude
   });
 };

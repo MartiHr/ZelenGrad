@@ -8,6 +8,7 @@ type Zone = {
   id: string;
   name: string;
   description: string | null;
+  boundary: unknown;
   createdAt: string;
   assignments: Array<{
     id: string;
@@ -40,6 +41,7 @@ export const ZonesPage = () => {
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [boundaryJson, setBoundaryJson] = useState("");
   const [assignmentByZone, setAssignmentByZone] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -96,21 +98,24 @@ export const ZonesPage = () => {
     setCreateSuccess(null);
 
     try {
+      const boundary = boundaryJson.trim() ? JSON.parse(boundaryJson) : undefined;
       const zone = await apiRequest<Zone>("/zones", {
         method: "POST",
         token,
         body: {
           name,
-          description: description.trim() || undefined
+          description: description.trim() || undefined,
+          boundary
         }
       });
 
       setZones((current) => [...current, zone].sort((left, right) => left.name.localeCompare(right.name)));
       setName("");
       setDescription("");
+      setBoundaryJson("");
       setCreateSuccess(`Created ${zone.name}.`);
     } catch (caughtError) {
-      setCreateError(caughtError instanceof ApiError ? caughtError.message : "Could not create zone.");
+      setCreateError(caughtError instanceof SyntaxError ? "Boundary must be valid JSON." : caughtError instanceof ApiError ? caughtError.message : "Could not create zone.");
     } finally {
       setIsCreating(false);
     }
@@ -207,6 +212,14 @@ export const ZonesPage = () => {
               onChange={(event) => setDescription(event.target.value)}
               maxLength={1000}
               placeholder="Short operational note for this zone."
+            />
+          </label>
+          <label>
+            Boundary JSON
+            <textarea
+              value={boundaryJson}
+              onChange={(event) => setBoundaryJson(event.target.value)}
+              placeholder='{"type":"Polygon","coordinates":[[[23.31,42.70],[23.33,42.70],[23.33,42.69],[23.31,42.69],[23.31,42.70]]]}'
             />
           </label>
           {createError ? <p className="form-error">{createError}</p> : null}

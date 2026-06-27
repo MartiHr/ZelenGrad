@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import L from "leaflet";
 import { Link } from "react-router";
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, Polygon, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 import { ApiError, apiRequest, uploadAssetImage } from "../api";
@@ -24,10 +24,14 @@ type GreenAsset = {
 type Zone = {
   id: string;
   name: string;
+  description: string | null;
+  boundary: unknown;
 };
 
 type MapBoundsProps = {
   assets: GreenAsset[];
+  zones: Zone[];
+  selectedZoneId: string;
 };
 
 type MapClickHandlerProps = {
@@ -61,6 +65,75 @@ const getDraftCoordinates = (latitude: string, longitude: string): [number, numb
 
   return [parsedLatitude, parsedLongitude];
 };
+const isCoordinatePair = (value: unknown): value is [number, number] =>
+  Array.isArray(value) &&
+  value.length >= 2 &&
+  typeof value[0] === "number" &&
+  typeof value[1] === "number" &&
+  Number.isFinite(value[0]) &&
+  Number.isFinite(value[1]);
+const toLatLngPair = (value: unknown, coordinatesAreLngLat = false): [number, number] | null => {
+  if (isCoordinatePair(value)) {
+    return coordinatesAreLngLat ? [value[1], value[0]] : [value[0], value[1]];
+  }
+
+  if (typeof value === "object" && value !== null && "lat" in value && "lng" in value) {
+    const lat = Number((value as { lat: unknown }).lat);
+    const lng = Number((value as { lng: unknown }).lng);
+    return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
+  }
+
+  if (typeof value === "object" && value !== null && "latitude" in value && "longitude" in value) {
+    const lat = Number((value as { latitude: unknown }).latitude);
+    const lng = Number((value as { longitude: unknown }).longitude);
+    return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
+  }
+
+  return null;
+};
+const parseCoordinateRing = (ring: unknown, coordinatesAreLngLat = false) => {
+  if (!Array.isArray(ring)) {
+    return [];
+  }
+
+  return ring
+    .map((coordinate) => toLatLngPair(coordinate, coordinatesAreLngLat))
+    .filter((coordinate): coordinate is [number, number] => coordinate !== null);
+};
+const getZonePolygons = (boundary: unknown): Array<Array<[number, number]>> => {
+  if (!boundary) {
+    return [];
+  }
+
+  if (Array.isArray(boundary)) {
+    const ring = parseCoordinateRing(boundary);
+    return ring.length >= 3 ? [ring] : [];
+  }
+
+  if (typeof boundary !== "object") {
+    return [];
+  }
+
+  const geoJson = boundary as { type?: unknown; coordinates?: unknown };
+
+  if (geoJson.type === "Polygon" && Array.isArray(geoJson.coordinates)) {
+    const ring = parseCoordinateRing(geoJson.coordinates[0], true);
+    return ring.length >= 3 ? [ring] : [];
+  }
+
+  if (geoJson.type === "MultiPolygon" && Array.isArray(geoJson.coordinates)) {
+    return geoJson.coordinates
+      .map((polygon) => (Array.isArray(polygon) ? parseCoordinateRing(polygon[0], true) : []))
+      .filter((ring) => ring.length >= 3);
+  }
+
+  if ("points" in geoJson) {
+    const ring = parseCoordinateRing((geoJson as { points: unknown }).points);
+    return ring.length >= 3 ? [ring] : [];
+  }
+
+  return [];
+};
 
 const getMarkerIcon = (healthStatus: string) => {
   const color = healthColors[healthStatus] ?? "#12633f";
@@ -82,10 +155,20 @@ const draftLocationIcon = L.divIcon({
   popupAnchor: [0, -14]
 });
 
-const MapBounds = ({ assets }: MapBoundsProps) => {
+const MapBounds = ({ assets, zones, selectedZoneId }: MapBoundsProps) => {
   const map = useMap();
 
   useEffect(() => {
+    const selectedZone = zones.find((zone) => zone.id === selectedZoneId);
+    const selectedZoneCoordinates = selectedZone
+      ? getZonePolygons(selectedZone.boundary).flat()
+      : [];
+
+    if (selectedZoneCoordinates.length >= 3) {
+      map.fitBounds(L.latLngBounds(selectedZoneCoordinates), { padding: [42, 42], maxZoom: 15 });
+      return;
+    }
+
     const validAssets = assets.filter(
       (asset) => Number.isFinite(Number(asset.latitude)) && Number.isFinite(Number(asset.longitude))
     );
@@ -97,7 +180,7 @@ const MapBounds = ({ assets }: MapBoundsProps) => {
 
     const bounds = L.latLngBounds(validAssets.map(getCoordinates));
     map.fitBounds(bounds, { padding: [36, 36], maxZoom: 15 });
-  }, [assets, map]);
+  }, [assets, map, selectedZoneId, zones]);
 
   return null;
 };
@@ -350,7 +433,37 @@ export const GreenMapPage = () => {
               }}
             />
           ) : null}
-          <MapBounds assets={assets} />
+          <MapBounds assets={assets} zones={zones} selectedZoneId={zoneId} />
+          {zones.map((zone) =>
+            getZonePolygons(zone.boundary).map((positions, index) => {
+              const isSelected = zone.id === zoneId;
+
+              return (
+                <Polygon
+                  key={`${zone.id}:${index}`}
+                  positions={positions}
+                  pathOptions={{
+                    color: isSelected ? "#0f5132" : "#2f855a",
+                    fillColor: isSelected ? "#9ae6b4" : "#b9f5d0",
+                    fillOpacity: isSelected ? 0.32 : 0.14,
+                    opacity: isSelected ? 0.95 : 0.55,
+                    weight: isSelected ? 4 : 2
+                  }}
+                >
+                  <Tooltip sticky>{zone.name}</Tooltip>
+                  <Popup>
+                    <div className="map-popup">
+                      <strong>{zone.name}</strong>
+                      {zone.description ? <span>{zone.description}</span> : null}
+                      <button type="button" className="map-popup-button" onClick={() => setZoneId(zone.id)}>
+                        Filter this zone
+                      </button>
+                    </div>
+                  </Popup>
+                </Polygon>
+              );
+            })
+          )}
           {assets.map((asset) => (
             <Marker key={asset.id} position={getCoordinates(asset)} icon={getMarkerIcon(asset.healthStatus)}>
               <Popup>
