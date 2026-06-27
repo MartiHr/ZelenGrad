@@ -51,6 +51,12 @@ const actions: HomeAction[] = [
     label: "Manage Users",
     detail: "Adjust roles, accounts, and reward histories.",
     roles: ["ADMIN"]
+  },
+  {
+    to: "/audit",
+    label: "Audit History",
+    detail: "Inspect recent administrative and operational changes.",
+    roles: ["ADMIN"]
   }
 ];
 

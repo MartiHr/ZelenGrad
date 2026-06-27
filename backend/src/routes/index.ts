@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { adoptionsRouter } from "./adoptions.routes.js";
+import { auditRouter } from "./audit.routes.js";
 import { assetsRouter } from "./assets.routes.js";
 import { authRouter } from "./auth.routes.js";
 import { dashboardRouter } from "./dashboard.routes.js";
@@ -17,6 +18,7 @@ export const apiRouter = Router();
 apiRouter.use("/health", healthRouter);
 apiRouter.use("/events", eventsRouter);
 apiRouter.use("/dashboard", dashboardRouter);
+apiRouter.use("/audit", auditRouter);
 apiRouter.use("/", authRouter);
 apiRouter.use("/users", usersRouter);
 apiRouter.use("/zones", zonesRouter);

@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AppLayout } from "./layouts/AppLayout";
 import { AboutPage } from "./pages/AboutPage";
+import { AuditPage } from "./pages/AuditPage";
 import { AssetDetailsPage } from "./pages/AssetDetailsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { GreenMapPage } from "./pages/GreenMapPage";
@@ -81,6 +82,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute roles={["ADMIN"]}>
             <UsersPage />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "audit",
+        element: (
+          <ProtectedRoute roles={["ADMIN"]}>
+            <AuditPage />
           </ProtectedRoute>
         )
       },

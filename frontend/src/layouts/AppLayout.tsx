@@ -12,7 +12,8 @@ const navigation: Array<{ to: string; label: string; roles?: UserRole[] }> = [
   { to: "/worklist", label: "Worklist", roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
   { to: "/incidents", label: "Incidents", roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
   { to: "/zones", label: "Zones", roles: ["MANAGER", "ADMIN"] },
-  { to: "/users", label: "Users", roles: ["ADMIN"] }
+  { to: "/users", label: "Users", roles: ["ADMIN"] },
+  { to: "/audit", label: "Audit", roles: ["ADMIN"] }
 ];
 
 export const AppLayout = () => {
