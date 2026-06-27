@@ -141,6 +141,94 @@ p {
   padding-bottom: 0;
 }
 
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  display: grid;
+  gap: 0.4rem;
+  border: 1px solid #d9e2dc;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 1rem;
+}
+
+.stat-card span,
+.stat-card small,
+.muted-text {
+  color: #60756c;
+}
+
+.stat-card span {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.stat-card strong {
+  color: #173f2d;
+  font-size: 2.15rem;
+  line-height: 1;
+}
+
+.stat-card small {
+  font-weight: 700;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.count-list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.count-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #edf2ef;
+  padding-bottom: 0.55rem;
+}
+
+.count-list div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.count-list dt {
+  color: #60756c;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.count-list dd {
+  margin: 0;
+  color: #173f2d;
+  font-weight: 900;
+}
+
+.refresh-button {
+  width: fit-content;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  color: #ffffff;
+  background: #12633f;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 code {
   display: block;
   overflow-x: auto;
