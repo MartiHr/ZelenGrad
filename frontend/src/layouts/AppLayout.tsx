@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router";
 
 import { useAuth } from "../auth/AuthContext";
 import type { UserRole } from "../auth/authTypes";
+import { LiveNotifications } from "../components/LiveNotifications";
 
 const navigation: Array<{ to: string; label: string; roles?: UserRole[] }> = [
   { to: "/", label: "Home" },
@@ -54,6 +55,7 @@ export const AppLayout = () => {
       <main className="content">
         <Outlet />
       </main>
+      <LiveNotifications />
     </div>
   );
 };
