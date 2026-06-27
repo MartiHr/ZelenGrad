@@ -76,6 +76,18 @@ a {
   font: inherit;
 }
 
+.session-actions a {
+  display: grid;
+  gap: 0.05rem;
+}
+
+.session-actions a small {
+  color: #60756c;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .content {
   width: min(1120px, calc(100% - 2rem));
   margin: 0 auto;
@@ -119,6 +131,34 @@ p {
   border-radius: 8px;
   background: #ffffff;
   padding: 1rem;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.quick-actions a {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid #d9e2dc;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 1rem;
+}
+
+.quick-actions a:hover {
+  border-color: #12633f;
+}
+
+.quick-actions strong {
+  color: #173f2d;
+}
+
+.quick-actions span {
+  color: #60756c;
+  line-height: 1.5;
 }
 
 .event-list {

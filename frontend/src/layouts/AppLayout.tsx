@@ -34,7 +34,10 @@ export const AppLayout = () => {
         <div className="session-actions">
           {isAuthenticated ? (
             <>
-              <NavLink to="/profile">{user?.name}</NavLink>
+              <NavLink to="/profile">
+                <span>{user?.name}</span>
+                <small>{user?.role}</small>
+              </NavLink>
               <button type="button" onClick={() => void logout()}>
                 Logout
               </button>

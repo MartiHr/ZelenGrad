@@ -689,11 +689,7 @@ export const AssetDetailsPage = () => {
                   </p>
                 ) : null}
               </div>
-            ) : (
-              <button type="button" disabled>
-                Adopt Tree
-              </button>
-            )}
+            ) : null}
             {isAuthenticated && hasRole("MANAGER", "ADMIN") ? (
               <form className="inline-form" onSubmit={(event) => void scheduleMaintenance(event)}>
                 <label>
@@ -782,11 +778,15 @@ export const AssetDetailsPage = () => {
                   {isSchedulingMaintenance ? "Scheduling..." : "Schedule Maintenance"}
                 </button>
               </form>
-            ) : (
-              <button type="button" disabled>
-                Schedule Maintenance
-              </button>
-            )}
+            ) : null}
+            {isAuthenticated && hasRole("EMPLOYEE") ? (
+              <div className="auth-prompt">
+                <p>Open your worklist to inspect assigned tasks or update maintenance progress.</p>
+                <div className="button-row">
+                  <Link to="/worklist">Open Worklist</Link>
+                </div>
+              </div>
+            ) : null}
           </div>
         </article>
       </div>
