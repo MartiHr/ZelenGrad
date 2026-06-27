@@ -1,8 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
+import L from "leaflet";
+import { CircleMarker, MapContainer, Polygon, Polyline, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { StaffSearchSelect } from "../components/StaffSearchSelect";
+import { createGeoJsonPolygon, getZonePolygons, type LatLngPair } from "../map/zoneBoundaries";
 
 type Zone = {
   id: string;
@@ -35,6 +39,97 @@ type StaffUser = {
   role: string;
 };
 
+type BoundaryMapProps = {
+  zones: Zone[];
+  draftPoints: LatLngPair[];
+  onAddPoint: (point: LatLngPair) => void;
+};
+
+const defaultCenter: LatLngPair = [42.6977, 23.3219];
+
+const BoundaryClickHandler = ({ onAddPoint }: { onAddPoint: (point: LatLngPair) => void }) => {
+  useMapEvents({
+    click: (event) => {
+      onAddPoint([Number(event.latlng.lat.toFixed(6)), Number(event.latlng.lng.toFixed(6))]);
+    }
+  });
+
+  return null;
+};
+
+const BoundaryMapBounds = ({ zones, draftPoints }: { zones: Zone[]; draftPoints: LatLngPair[] }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    const zonePoints = zones.flatMap((zone) => getZonePolygons(zone.boundary).flat());
+    const allPoints = [...zonePoints, ...draftPoints];
+
+    if (allPoints.length >= 2) {
+      map.fitBounds(L.latLngBounds(allPoints), { padding: [36, 36], maxZoom: 15 });
+      return;
+    }
+
+    map.setView(defaultCenter, 12);
+  }, [draftPoints, map, zones]);
+
+  return null;
+};
+
+const BoundaryMap = ({ zones, draftPoints, onAddPoint }: BoundaryMapProps) => (
+  <div className="zone-boundary-map-panel">
+    <MapContainer center={defaultCenter} zoom={12} scrollWheelZoom className="zone-boundary-map">
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <BoundaryClickHandler onAddPoint={onAddPoint} />
+      <BoundaryMapBounds zones={zones} draftPoints={draftPoints} />
+      {zones.map((zone) =>
+        getZonePolygons(zone.boundary).map((positions, index) => (
+          <Polygon
+            key={`${zone.id}:${index}`}
+            positions={positions}
+            pathOptions={{
+              color: "#2f855a",
+              fillColor: "#b9f5d0",
+              fillOpacity: 0.16,
+              opacity: 0.65,
+              weight: 2
+            }}
+          >
+            <Tooltip sticky>{zone.name}</Tooltip>
+            <Popup>
+              <div className="map-popup">
+                <strong>{zone.name}</strong>
+                {zone.description ? <span>{zone.description}</span> : null}
+              </div>
+            </Popup>
+          </Polygon>
+        ))
+      )}
+      {draftPoints.length >= 2 ? (
+        <Polyline positions={draftPoints} pathOptions={{ color: "#0f5132", dashArray: "8 6", weight: 3 }} />
+      ) : null}
+      {draftPoints.length >= 3 ? (
+        <Polygon
+          positions={draftPoints}
+          pathOptions={{ color: "#0f5132", fillColor: "#9ae6b4", fillOpacity: 0.28, weight: 3 }}
+        />
+      ) : null}
+      {draftPoints.map((point, index) => (
+        <CircleMarker
+          key={`${point[0]}:${point[1]}:${index}`}
+          center={point}
+          radius={6}
+          pathOptions={{ color: "#ffffff", fillColor: "#0f5132", fillOpacity: 1, weight: 2 }}
+        >
+          <Tooltip>{index + 1}</Tooltip>
+        </CircleMarker>
+      ))}
+    </MapContainer>
+  </div>
+);
+
 export const ZonesPage = () => {
   const { token } = useAuth();
   const [zones, setZones] = useState<Zone[]>([]);
@@ -42,6 +137,7 @@ export const ZonesPage = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [boundaryJson, setBoundaryJson] = useState("");
+  const [boundaryPoints, setBoundaryPoints] = useState<LatLngPair[]>([]);
   const [assignmentByZone, setAssignmentByZone] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -113,12 +209,34 @@ export const ZonesPage = () => {
       setName("");
       setDescription("");
       setBoundaryJson("");
+      setBoundaryPoints([]);
       setCreateSuccess(`Created ${zone.name}.`);
     } catch (caughtError) {
       setCreateError(caughtError instanceof SyntaxError ? "Boundary must be valid JSON." : caughtError instanceof ApiError ? caughtError.message : "Could not create zone.");
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const addBoundaryPoint = (point: LatLngPair) => {
+    setBoundaryPoints((current) => {
+      const next = [...current, point];
+      setBoundaryJson(next.length >= 3 ? JSON.stringify(createGeoJsonPolygon(next), null, 2) : "");
+      return next;
+    });
+  };
+
+  const undoBoundaryPoint = () => {
+    setBoundaryPoints((current) => {
+      const next = current.slice(0, -1);
+      setBoundaryJson(next.length >= 3 ? JSON.stringify(createGeoJsonPolygon(next), null, 2) : "");
+      return next;
+    });
+  };
+
+  const clearBoundaryPoints = () => {
+    setBoundaryPoints([]);
+    setBoundaryJson("");
   };
 
   const replaceZone = (zone: Zone) => {
@@ -222,6 +340,23 @@ export const ZonesPage = () => {
               placeholder='{"type":"Polygon","coordinates":[[[23.31,42.70],[23.33,42.70],[23.33,42.69],[23.31,42.69],[23.31,42.70]]]}'
             />
           </label>
+          <div className="boundary-editor">
+            <div className="boundary-editor-header">
+              <span>Boundary Map</span>
+              <div className="button-row">
+                <button type="button" className="muted-button" disabled={boundaryPoints.length === 0} onClick={undoBoundaryPoint}>
+                  Undo Point
+                </button>
+                <button type="button" className="muted-button" disabled={boundaryPoints.length === 0} onClick={clearBoundaryPoints}>
+                  Clear
+                </button>
+              </div>
+            </div>
+            <BoundaryMap zones={zones} draftPoints={boundaryPoints} onAddPoint={addBoundaryPoint} />
+            <p className="muted-text">
+              Click the map to add at least three points. The boundary JSON updates automatically.
+            </p>
+          </div>
           {createError ? <p className="form-error">{createError}</p> : null}
           {createSuccess ? <p className="form-success">{createSuccess}</p> : null}
           <button type="submit" disabled={isCreating}>
@@ -233,6 +368,11 @@ export const ZonesPage = () => {
       {error ? <p className="form-error">{error}</p> : null}
       {assignmentError ? <p className="form-error">{assignmentError}</p> : null}
       {assignmentSuccess ? <p className="form-success">{assignmentSuccess}</p> : null}
+
+      <article className="panel details-panel">
+        <h2>Zone Boundaries</h2>
+        <BoundaryMap zones={zones} draftPoints={[]} onAddPoint={() => undefined} />
+      </article>
 
       <div className="asset-grid">
         {isLoading ? <p>Loading zones...</p> : null}

@@ -434,6 +434,19 @@ code {
   min-height: 360px;
 }
 
+.zone-boundary-map-panel {
+  border: 1px solid #d9e2dc;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.zone-boundary-map {
+  width: 100%;
+  height: min(48vh, 420px);
+  min-height: 320px;
+}
+
 .asset-marker {
   display: grid;
   place-items: center;
@@ -1144,6 +1157,25 @@ code {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.85rem;
+}
+
+.boundary-editor {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.boundary-editor-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  color: #33483f;
+  font-weight: 800;
+}
+
+.boundary-editor .button-row {
+  margin: 0;
 }
 
 .field-action {
