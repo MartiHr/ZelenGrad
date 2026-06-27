@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import { ApiError, apiRequest, createDashboardEventSource } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { StaffSearchSelect } from "../components/StaffSearchSelect";
 
 type DashboardEvent = {
   type: string;
@@ -245,14 +246,12 @@ export const DashboardPage = () => {
         </label>
         <label>
           Responsible staff
-          <select value={responsibleEmployeeId} onChange={(event) => setResponsibleEmployeeId(event.target.value)}>
-            <option value="">Any responsible staff</option>
-            {staffUsers.map((staffUser) => (
-              <option key={staffUser.id} value={staffUser.id}>
-                {staffUser.name} ({staffUser.role})
-              </option>
-            ))}
-          </select>
+          <StaffSearchSelect
+            value={responsibleEmployeeId}
+            onChange={setResponsibleEmployeeId}
+            staffUsers={staffUsers}
+            placeholder="Any responsible staff"
+          />
         </label>
         <label>
           Time window

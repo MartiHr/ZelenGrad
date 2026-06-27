@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { StaffSearchSelect } from "../components/StaffSearchSelect";
 
 type Incident = {
   id: string;
@@ -180,14 +181,12 @@ export const IncidentReviewPage = () => {
         {canManageIncidents ? (
           <label>
             Responsible zone
-            <select value={responsibleEmployeeId} onChange={(event) => setResponsibleEmployeeId(event.target.value)}>
-              <option value="">Any responsible staff</option>
-              {staffUsers.map((staffUser) => (
-                <option key={staffUser.id} value={staffUser.id}>
-                  {staffUser.name} ({staffUser.role})
-                </option>
-              ))}
-            </select>
+            <StaffSearchSelect
+              value={responsibleEmployeeId}
+              onChange={setResponsibleEmployeeId}
+              staffUsers={staffUsers}
+              placeholder="Any responsible staff"
+            />
           </label>
         ) : (
           <label>

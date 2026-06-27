@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { StaffSearchSelect } from "../components/StaffSearchSelect";
 
 type UserSummary = {
   id: string;
@@ -319,17 +320,12 @@ export const MaintenanceTaskDetailsPage = () => {
               </label>
               <label>
                 Assignee
-                <select
+                <StaffSearchSelect
                   value={editForm.assignedToId}
-                  onChange={(event) => updateEditForm({ assignedToId: event.target.value })}
-                >
-                  <option value="">Unassigned</option>
-                  {staffUsers.map((staffUser) => (
-                    <option key={staffUser.id} value={staffUser.id}>
-                      {staffUser.name} ({staffUser.role})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(assignedToId) => updateEditForm({ assignedToId })}
+                  staffUsers={staffUsers}
+                  placeholder="Unassigned"
+                />
               </label>
               <label>
                 Asset target

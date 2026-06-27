@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { StaffSearchSelect } from "../components/StaffSearchSelect";
 
 type Zone = {
   id: string;
@@ -274,19 +275,14 @@ export const ZonesPage = () => {
                 <p>No staff are assigned to this zone yet.</p>
               )}
               <div className="inline-assignment-form">
-                <select
+                <StaffSearchSelect
                   value={assignmentByZone[zone.id] ?? ""}
-                  onChange={(event) =>
-                    setAssignmentByZone((current) => ({ ...current, [zone.id]: event.target.value }))
+                  onChange={(employeeId) =>
+                    setAssignmentByZone((current) => ({ ...current, [zone.id]: employeeId }))
                   }
-                >
-                  <option value="">Choose staff</option>
-                  {staffUsers.map((staffUser) => (
-                    <option key={staffUser.id} value={staffUser.id}>
-                      {staffUser.name} ({staffUser.role})
-                    </option>
-                  ))}
-                </select>
+                  staffUsers={staffUsers}
+                  placeholder="Choose staff"
+                />
                 <button
                   type="button"
                   disabled={updatingAssignment === `${zone.id}:assign`}

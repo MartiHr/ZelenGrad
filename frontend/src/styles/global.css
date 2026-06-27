@@ -964,6 +964,106 @@ code {
   opacity: 0.7;
 }
 
+.staff-search-select {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.staff-search-trigger,
+.inline-form .staff-search-trigger,
+.action-stack .inline-form .staff-search-trigger,
+.inline-assignment-form .staff-search-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #c9d6cf;
+  border-radius: 6px;
+  padding: 0.7rem 0.8rem;
+  color: #20312a;
+  background: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 400;
+  text-align: left;
+}
+
+.staff-search-trigger::after {
+  content: "v";
+  color: #60756c;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.staff-search-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.staff-search-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  display: grid;
+  width: min(360px, 100vw - 2rem);
+  max-height: 320px;
+  gap: 0.35rem;
+  overflow-y: auto;
+  border: 1px solid #c9d6cf;
+  border-radius: 8px;
+  box-shadow: 0 16px 36px rgba(23, 63, 45, 0.16);
+  background: #ffffff;
+  padding: 0.45rem;
+}
+
+.staff-search-menu input {
+  width: 100%;
+  border: 1px solid #c9d6cf;
+  border-radius: 6px;
+  padding: 0.6rem 0.7rem;
+  color: #20312a;
+  background: #f8fbf9;
+  font: inherit;
+}
+
+.staff-search-option,
+.inline-form .staff-search-option,
+.action-stack .inline-form .staff-search-option,
+.inline-assignment-form .staff-search-option {
+  display: grid;
+  width: 100%;
+  gap: 0.1rem;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.55rem 0.65rem;
+  color: #20312a;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 400;
+  text-align: left;
+}
+
+.staff-search-option:hover,
+.staff-search-option:focus-visible {
+  background: #edf7f1;
+  outline: none;
+}
+
+.staff-search-option strong {
+  color: #173f2d;
+}
+
+.staff-search-option small,
+.staff-search-menu p {
+  margin: 0;
+  color: #60756c;
+  font-size: 0.82rem;
+}
+
 .care-form {
   border-top: 1px solid #edf2ef;
   padding-top: 0.9rem;

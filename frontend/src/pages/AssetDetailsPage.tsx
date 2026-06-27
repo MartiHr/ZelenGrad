@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { StaffSearchSelect } from "../components/StaffSearchSelect";
 
 type Asset = {
   id: string;
@@ -758,14 +759,12 @@ export const AssetDetailsPage = () => {
 
                 <label>
                   Assignee
-                  <select value={assignedToId} onChange={(event) => setAssignedToId(event.target.value)}>
-                    <option value="">Unassigned</option>
-                    {staffUsers.map((staffUser) => (
-                      <option key={staffUser.id} value={staffUser.id}>
-                        {staffUser.name} ({staffUser.role})
-                      </option>
-                    ))}
-                  </select>
+                  <StaffSearchSelect
+                    value={assignedToId}
+                    onChange={setAssignedToId}
+                    staffUsers={staffUsers}
+                    placeholder="Unassigned"
+                  />
                 </label>
 
                 {staffError ? <p className="form-error">{staffError}</p> : null}

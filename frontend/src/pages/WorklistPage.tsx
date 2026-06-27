@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { StaffSearchSelect } from "../components/StaffSearchSelect";
 
 type MaintenanceTask = {
   id: string;
@@ -184,28 +185,21 @@ export const WorklistPage = () => {
           <>
             <label>
               Assigned to
-              <select value={assignedToFilter} onChange={(event) => setAssignedToFilter(event.target.value)}>
-                <option value="">Any assignee</option>
-                {staffUsers.map((staffUser) => (
-                  <option key={staffUser.id} value={staffUser.id}>
-                    {staffUser.name} ({staffUser.role})
-                  </option>
-                ))}
-              </select>
+              <StaffSearchSelect
+                value={assignedToFilter}
+                onChange={setAssignedToFilter}
+                staffUsers={staffUsers}
+                placeholder="Any assignee"
+              />
             </label>
             <label>
               Responsible zone
-              <select
+              <StaffSearchSelect
                 value={responsibleEmployeeFilter}
-                onChange={(event) => setResponsibleEmployeeFilter(event.target.value)}
-              >
-                <option value="">Any responsible staff</option>
-                {staffUsers.map((staffUser) => (
-                  <option key={staffUser.id} value={staffUser.id}>
-                    {staffUser.name} ({staffUser.role})
-                  </option>
-                ))}
-              </select>
+                onChange={setResponsibleEmployeeFilter}
+                staffUsers={staffUsers}
+                placeholder="Any responsible staff"
+              />
             </label>
           </>
         ) : (
