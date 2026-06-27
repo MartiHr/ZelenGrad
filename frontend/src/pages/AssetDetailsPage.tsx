@@ -16,6 +16,7 @@ type Asset = {
   plantedAt: string | null;
   healthStatus: string;
   lifecycleStatus: string;
+  metadata: { photoUrl?: string } | null;
   zone: { id: string; name: string } | null;
   createdBy: { id: string; name: string; email: string } | null;
 };
@@ -104,6 +105,8 @@ const maintenanceTypes = ["WATERING", "PRUNING", "INSPECTION", "TREATMENT", "CLE
 const assetTypes = ["TREE", "PARK", "SHRUB", "GARDEN"];
 const assetHealthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED", "REMOVED"];
 const assetLifecycleStatuses = ["ACTIVE", "UNDER_MAINTENANCE", "ARCHIVED"];
+const getAssetPhotoUrl = (asset: Asset) =>
+  typeof asset.metadata?.photoUrl === "string" ? asset.metadata.photoUrl : "";
 
 const formatDate = (value: string | null) => {
   if (!value) {
@@ -436,15 +439,53 @@ export const AssetDetailsPage = () => {
     }
   };
 
+  const latestHealthLog = history?.healthLogs[0] ?? null;
+  const latestMaintenanceLog = history?.maintenanceLogs[0] ?? null;
+  const assetPhotoUrl = getAssetPhotoUrl(asset);
+
   return (
     <section className="page">
-      <div className="details-header">
-        <div>
-          <p className="eyebrow">{asset.type}</p>
-          <h1>{asset.commonName ?? asset.species}</h1>
-          <p>{asset.description ?? "No description has been added for this green asset yet."}</p>
+      <div className="asset-detail-hero">
+        <div className="asset-detail-media">
+          {assetPhotoUrl ? (
+            <img src={assetPhotoUrl} alt={asset.commonName ?? asset.species} />
+          ) : (
+            <div className="asset-detail-photo-placeholder">{asset.type.slice(0, 1)}</div>
+          )}
         </div>
-        <Link to="/map">Back to map</Link>
+        <div className="asset-detail-summary">
+          <div className="details-header">
+            <div>
+              <p className="eyebrow">{asset.type}</p>
+              <h1>{asset.commonName ?? asset.species}</h1>
+              <p>{asset.description ?? "No description has been added for this green asset yet."}</p>
+            </div>
+            <Link to="/map">Back to map</Link>
+          </div>
+          <div className="status-chip-row">
+            <span className={`status-chip health-${asset.healthStatus.toLowerCase()}`}>{asset.healthStatus}</span>
+            <span className="status-chip">{asset.lifecycleStatus}</span>
+            <span className="status-chip">{asset.zone?.name ?? "Unassigned zone"}</span>
+          </div>
+          <dl className="asset-quick-stats">
+            <div>
+              <dt>Health records</dt>
+              <dd>{history?.healthLogs.length ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Maintenance logs</dt>
+              <dd>{history?.maintenanceLogs.length ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Last health update</dt>
+              <dd>{latestHealthLog ? formatDate(latestHealthLog.recordedAt) : "Not recorded"}</dd>
+            </div>
+            <div>
+              <dt>Last maintenance</dt>
+              <dd>{latestMaintenanceLog ? formatDate(latestMaintenanceLog.performedAt) : "Not recorded"}</dd>
+            </div>
+          </dl>
+        </div>
       </div>
 
       <div className="details-grid">
@@ -613,7 +654,11 @@ export const AssetDetailsPage = () => {
           <h2>Actions</h2>
           <div className="action-stack">
             {isAuthenticated ? (
-              <form className="inline-form" onSubmit={(event) => void submitIncidentReport(event)}>
+              <form className="inline-form action-section" onSubmit={(event) => void submitIncidentReport(event)}>
+                <div>
+                  <h3>Report Incident</h3>
+                  <p className="muted-text">Send a field observation to the review queue.</p>
+                </div>
                 <label>
                   Incident type
                   <select value={reportType} onChange={(event) => setReportType(event.target.value)}>
@@ -682,6 +727,10 @@ export const AssetDetailsPage = () => {
             )}
             {isAuthenticated && hasRole("CITIZEN") ? (
               <div className="action-card">
+                <div>
+                  <h3>Citizen Care</h3>
+                  <p className="muted-text">Adopt this tree and track care activity in My Forest.</p>
+                </div>
                 <button className="primary-action" type="button" disabled={isAdopting} onClick={() => void adoptTree()}>
                   {isAdopting ? "Adopting..." : "Adopt Tree"}
                 </button>
@@ -695,7 +744,13 @@ export const AssetDetailsPage = () => {
               </div>
             ) : null}
             {isAuthenticated && hasRole("MANAGER", "ADMIN") ? (
-              <form className="inline-form" onSubmit={(event) => void scheduleMaintenance(event)}>
+              <form className="inline-form action-section" onSubmit={(event) => void scheduleMaintenance(event)}>
+                <div>
+                  <h3>Schedule Maintenance</h3>
+                  <p className="muted-text">
+                    Leave assignee empty to place the task in the responsible zone worklist.
+                  </p>
+                </div>
                 <label>
                   Task type
                   <select value={maintenanceType} onChange={(event) => setMaintenanceType(event.target.value)}>
