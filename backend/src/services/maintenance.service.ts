@@ -66,13 +66,48 @@ const taskDetailInclude = {
   }
 } satisfies Prisma.MaintenanceTaskInclude;
 
+const buildResponsibleZoneFilter = (employeeId: string): Prisma.MaintenanceTaskWhereInput => ({
+  OR: [
+    {
+      zone: {
+        assignments: {
+          some: { employeeId }
+        }
+      }
+    },
+    {
+      asset: {
+        zone: {
+          assignments: {
+            some: { employeeId }
+          }
+        }
+      }
+    }
+  ]
+});
+
 export const listMaintenanceTasks = async (query: ListMaintenanceQuery, currentUserId: string, canViewAll: boolean) => {
+  const visibilityFilter: Prisma.MaintenanceTaskWhereInput = canViewAll
+    ? {}
+    : query.responsibleZoneOnly
+      ? buildResponsibleZoneFilter(currentUserId)
+      : { assignedToId: currentUserId };
+  const responsibilityFilter =
+    canViewAll && query.responsibleEmployeeId ? buildResponsibleZoneFilter(query.responsibleEmployeeId) : {};
+
   return prisma.maintenanceTask.findMany({
     where: {
-      status: query.status,
-      assignedToId: canViewAll ? query.assignedToId : currentUserId,
-      assetId: query.assetId,
-      zoneId: query.zoneId
+      AND: [
+        {
+          status: query.status,
+          assignedToId: canViewAll ? query.assignedToId : undefined,
+          assetId: query.assetId,
+          zoneId: query.zoneId
+        },
+        visibilityFilter,
+        responsibilityFilter
+      ]
     },
     orderBy: [{ dueAt: "asc" }, { scheduledFor: "asc" }, { createdAt: "desc" }],
     include: taskInclude

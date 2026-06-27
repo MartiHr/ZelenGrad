@@ -18,7 +18,20 @@ type MaintenanceTask = {
   assignedTo: { id: string; name: string; email: string } | null;
 };
 
+type Zone = {
+  id: string;
+  name: string;
+};
+
+type StaffUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+};
+
 const statuses = ["ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+const filterStatuses = ["PLANNED", ...statuses];
 const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED", "REMOVED"];
 
 const formatDateTime = (value: string | null) => {
@@ -33,13 +46,21 @@ const formatDateTime = (value: string | null) => {
 };
 
 export const WorklistPage = () => {
-  const { token } = useAuth();
+  const { hasRole, token } = useAuth();
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [zoneFilter, setZoneFilter] = useState("");
+  const [assignedToFilter, setAssignedToFilter] = useState("");
+  const [responsibleEmployeeFilter, setResponsibleEmployeeFilter] = useState("");
+  const [employeeScope, setEmployeeScope] = useState("assigned");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [notesByTask, setNotesByTask] = useState<Record<string, string>>({});
   const [healthByTask, setHealthByTask] = useState<Record<string, string>>({});
+  const canManageWorkload = hasRole("MANAGER", "ADMIN");
 
   const loadTasks = async () => {
     if (!token) {
@@ -50,7 +71,30 @@ export const WorklistPage = () => {
     setError(null);
 
     try {
-      setTasks(await apiRequest<MaintenanceTask[]>("/maintenance", { token }));
+      const params = new URLSearchParams();
+
+      if (statusFilter) {
+        params.set("status", statusFilter);
+      }
+
+      if (zoneFilter) {
+        params.set("zoneId", zoneFilter);
+      }
+
+      if (canManageWorkload && assignedToFilter) {
+        params.set("assignedToId", assignedToFilter);
+      }
+
+      if (canManageWorkload && responsibleEmployeeFilter) {
+        params.set("responsibleEmployeeId", responsibleEmployeeFilter);
+      }
+
+      if (!canManageWorkload && employeeScope === "responsible-zones") {
+        params.set("responsibleZoneOnly", "true");
+      }
+
+      const query = params.toString();
+      setTasks(await apiRequest<MaintenanceTask[]>(`/maintenance${query ? `?${query}` : ""}`, { token }));
     } catch (caughtError) {
       setError(caughtError instanceof ApiError ? caughtError.message : "Could not load maintenance tasks.");
     } finally {
@@ -60,7 +104,26 @@ export const WorklistPage = () => {
 
   useEffect(() => {
     void loadTasks();
-  }, [token]);
+  }, [assignedToFilter, canManageWorkload, employeeScope, responsibleEmployeeFilter, statusFilter, token, zoneFilter]);
+
+  useEffect(() => {
+    apiRequest<Zone[]>("/zones")
+      .then(setZones)
+      .catch(() => setZones([]));
+  }, []);
+
+  useEffect(() => {
+    if (!token || !canManageWorkload) {
+      setStaffUsers([]);
+      return;
+    }
+
+    apiRequest<StaffUser[]>("/users/staff", { token })
+      .then(setStaffUsers)
+      .catch((caughtError) => {
+        setError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
+      });
+  }, [canManageWorkload, token]);
 
   const updateStatus = async (task: MaintenanceTask, status: string) => {
     if (!token) {
@@ -93,6 +156,105 @@ export const WorklistPage = () => {
     <section className="page">
       <h1>Worklist</h1>
       <p>Review assigned maintenance tasks, start field work, and log completion details.</p>
+
+      <div className="toolbar">
+        <label>
+          Status
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="">All</option>
+            {filterStatuses.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Zone
+          <select value={zoneFilter} onChange={(event) => setZoneFilter(event.target.value)}>
+            <option value="">All zones</option>
+            {zones.map((zone) => (
+              <option key={zone.id} value={zone.id}>
+                {zone.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {canManageWorkload ? (
+          <>
+            <label>
+              Assigned to
+              <select value={assignedToFilter} onChange={(event) => setAssignedToFilter(event.target.value)}>
+                <option value="">Any assignee</option>
+                {staffUsers.map((staffUser) => (
+                  <option key={staffUser.id} value={staffUser.id}>
+                    {staffUser.name} ({staffUser.role})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Responsible zone
+              <select
+                value={responsibleEmployeeFilter}
+                onChange={(event) => setResponsibleEmployeeFilter(event.target.value)}
+              >
+                <option value="">Any responsible staff</option>
+                {staffUsers.map((staffUser) => (
+                  <option key={staffUser.id} value={staffUser.id}>
+                    {staffUser.name} ({staffUser.role})
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : (
+          <label>
+            Scope
+            <select value={employeeScope} onChange={(event) => setEmployeeScope(event.target.value)}>
+              <option value="assigned">Assigned to me</option>
+              <option value="responsible-zones">My responsible zones</option>
+            </select>
+          </label>
+        )}
+      </div>
+
+      {canManageWorkload && tasks.length ? (
+        <div className="dashboard-grid">
+          <article className="panel details-panel">
+            <h2>By Zone</h2>
+            <dl className="count-list">
+              {Object.entries(
+                tasks.reduce<Record<string, number>>((counts, task) => {
+                  const key = task.zone?.name ?? "Unassigned";
+                  return { ...counts, [key]: (counts[key] ?? 0) + 1 };
+                }, {})
+              ).map(([label, count]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{count}</dd>
+                </div>
+              ))}
+            </dl>
+          </article>
+          <article className="panel details-panel">
+            <h2>By Assignee</h2>
+            <dl className="count-list">
+              {Object.entries(
+                tasks.reduce<Record<string, number>>((counts, task) => {
+                  const key = task.assignedTo?.name ?? "Unassigned";
+                  return { ...counts, [key]: (counts[key] ?? 0) + 1 };
+                }, {})
+              ).map(([label, count]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{count}</dd>
+                </div>
+              ))}
+            </dl>
+          </article>
+        </div>
+      ) : null}
 
       {error ? <p className="form-error">{error}</p> : null}
 

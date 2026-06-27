@@ -4,6 +4,8 @@ import { z } from "zod";
 export const listMaintenanceQuerySchema = z.object({
   status: z.nativeEnum(MaintenanceTaskStatus).optional(),
   assignedToId: z.string().trim().min(1).optional(),
+  responsibleEmployeeId: z.string().trim().min(1).optional(),
+  responsibleZoneOnly: z.coerce.boolean().optional(),
   assetId: z.string().trim().min(1).optional(),
   zoneId: z.string().trim().min(1).optional()
 });
