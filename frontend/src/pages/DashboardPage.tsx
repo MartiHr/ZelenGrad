@@ -11,8 +11,26 @@ type DashboardEvent = {
 
 type CountMap = Record<string, number>;
 
+type Zone = {
+  id: string;
+  name: string;
+};
+
+type StaffUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+};
+
 type DashboardSummary = {
   generatedAt: string;
+  filters: {
+    zoneId: string | null;
+    responsibleEmployeeId: string | null;
+    timeWindow: string;
+    since: string | null;
+  };
   assets: {
     total: number;
     active: number;
@@ -75,6 +93,13 @@ const eventTypes = [
   "asset.updated"
 ];
 
+const timeWindows = [
+  { value: "ALL", label: "All time" },
+  { value: "TODAY", label: "Today" },
+  { value: "7D", label: "Last 7 days" },
+  { value: "30D", label: "Last 30 days" }
+];
+
 const formatDateTime = (value: string | null) => {
   if (!value) {
     return "Not set";
@@ -87,6 +112,9 @@ const formatDateTime = (value: string | null) => {
 };
 
 const sumCounts = (counts: CountMap, keys: string[]) => keys.reduce((total, key) => total + (counts[key] ?? 0), 0);
+
+const getWindowLabel = (timeWindow: string) =>
+  timeWindows.find((windowOption) => windowOption.value === timeWindow)?.label.toLowerCase() ?? "selected window";
 
 const StatCard = ({ label, value, detail }: { label: string; value: number; detail: string }) => (
   <article className="stat-card">
@@ -110,6 +138,11 @@ const CountList = ({ counts }: { counts: CountMap }) => (
 export const DashboardPage = () => {
   const { token } = useAuth();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
+  const [zoneId, setZoneId] = useState("");
+  const [responsibleEmployeeId, setResponsibleEmployeeId] = useState("");
+  const [timeWindow, setTimeWindow] = useState("ALL");
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -122,18 +155,48 @@ export const DashboardPage = () => {
     setError(null);
 
     try {
-      setSummary(await apiRequest<DashboardSummary>("/dashboard/summary", { token }));
+      const params = new URLSearchParams();
+
+      if (zoneId) {
+        params.set("zoneId", zoneId);
+      }
+
+      if (responsibleEmployeeId) {
+        params.set("responsibleEmployeeId", responsibleEmployeeId);
+      }
+
+      params.set("timeWindow", timeWindow);
+
+      setSummary(await apiRequest<DashboardSummary>(`/dashboard/summary?${params.toString()}`, { token }));
     } catch (caughtError) {
       setError(caughtError instanceof ApiError ? caughtError.message : "Could not load dashboard summary.");
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [responsibleEmployeeId, timeWindow, token, zoneId]);
 
   useEffect(() => {
     setIsLoading(true);
     void loadSummary();
   }, [loadSummary]);
+
+  useEffect(() => {
+    apiRequest<Zone[]>("/zones")
+      .then(setZones)
+      .catch(() => setZones([]));
+  }, []);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    apiRequest<StaffUser[]>("/users/staff", { token })
+      .then(setStaffUsers)
+      .catch((caughtError) => {
+        setError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
+      });
+  }, [token]);
 
   useEffect(() => {
     const source = createDashboardEventSource();
@@ -154,6 +217,7 @@ export const DashboardPage = () => {
   const openMaintenance = summary
     ? sumCounts(summary.maintenance.byStatus, ["PLANNED", "ASSIGNED", "IN_PROGRESS"])
     : 0;
+  const windowLabel = getWindowLabel(timeWindow);
 
   return (
     <section className="page">
@@ -167,19 +231,62 @@ export const DashboardPage = () => {
         </button>
       </div>
 
+      <div className="toolbar">
+        <label>
+          Zone
+          <select value={zoneId} onChange={(event) => setZoneId(event.target.value)}>
+            <option value="">All zones</option>
+            {zones.map((zone) => (
+              <option key={zone.id} value={zone.id}>
+                {zone.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Responsible staff
+          <select value={responsibleEmployeeId} onChange={(event) => setResponsibleEmployeeId(event.target.value)}>
+            <option value="">Any responsible staff</option>
+            {staffUsers.map((staffUser) => (
+              <option key={staffUser.id} value={staffUser.id}>
+                {staffUser.name} ({staffUser.role})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Time window
+          <select value={timeWindow} onChange={(event) => setTimeWindow(event.target.value)}>
+            {timeWindows.map((windowOption) => (
+              <option key={windowOption.value} value={windowOption.value}>
+                {windowOption.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       {error ? <p className="form-error">{error}</p> : null}
       {isLoading ? <p>Loading dashboard summary...</p> : null}
 
       {summary ? (
         <>
           <section className="stat-grid" aria-label="Dashboard metrics">
-            <StatCard label="Active assets" value={summary.assets.active} detail={`${summary.assets.total} total registered`} />
+            <StatCard
+              label="Active assets"
+              value={summary.assets.active}
+              detail={`${summary.assets.total} registered in ${windowLabel}`}
+            />
             <StatCard label="Open incidents" value={summary.incidents.open} detail={`${summary.incidents.urgentOpen} urgent`} />
-            <StatCard label="Open tasks" value={openMaintenance} detail={`${summary.maintenance.due} due now`} />
+            <StatCard
+              label="Open tasks"
+              value={openMaintenance}
+              detail={`${summary.maintenance.due} due now, ${summary.maintenance.completedToday} completed in ${windowLabel}`}
+            />
             <StatCard
               label="Active adoptions"
               value={summary.adoptions.active}
-              detail={`${summary.adoptions.careLogsToday} care logs today`}
+              detail={`${summary.adoptions.careLogsToday} care logs in ${windowLabel}`}
             />
           </section>
 
@@ -286,7 +393,11 @@ export const DashboardPage = () => {
             </article>
           </section>
 
-          <p className="muted-text">Last refreshed {formatDateTime(summary.generatedAt)}.</p>
+          <p className="muted-text">
+            Last refreshed {formatDateTime(summary.generatedAt)}. Showing {getWindowLabel(summary.filters.timeWindow)}
+            {summary.filters.zoneId ? " for selected zone" : ""}
+            {summary.filters.responsibleEmployeeId ? " and selected responsible staff" : ""}.
+          </p>
         </>
       ) : null}
     </section>

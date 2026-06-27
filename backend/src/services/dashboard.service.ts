@@ -3,16 +3,118 @@ import {
   AssetHealthStatus,
   AssetLifecycleStatus,
   IncidentStatus,
-  MaintenanceTaskStatus
+  MaintenanceTaskStatus,
+  type Prisma
 } from "@prisma/client";
 
 import { prisma } from "../lib/prisma.js";
+import type { DashboardSummaryQuery } from "../validators/dashboard.schemas.js";
 
 const startOfToday = () => {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
   return date;
 };
+
+const getWindowStart = (timeWindow: DashboardSummaryQuery["timeWindow"]) => {
+  if (timeWindow === "ALL") {
+    return undefined;
+  }
+
+  const date = new Date();
+
+  if (timeWindow === "TODAY") {
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+
+  date.setDate(date.getDate() - (timeWindow === "7D" ? 7 : 30));
+  return date;
+};
+
+const buildAssetWhere = (query: DashboardSummaryQuery, since?: Date): Prisma.GreenAssetWhereInput => ({
+  createdAt: since ? { gte: since } : undefined,
+  zoneId: query.zoneId,
+  zone: query.responsibleEmployeeId
+    ? {
+        assignments: {
+          some: { employeeId: query.responsibleEmployeeId }
+        }
+      }
+    : undefined
+});
+
+const buildIncidentWhere = (query: DashboardSummaryQuery, since?: Date): Prisma.IncidentReportWhereInput => ({
+  createdAt: since ? { gte: since } : undefined,
+  AND: [
+    query.zoneId
+      ? {
+          OR: [{ zoneId: query.zoneId }, { asset: { zoneId: query.zoneId } }]
+        }
+      : {},
+    query.responsibleEmployeeId
+      ? {
+          OR: [
+            { zone: { assignments: { some: { employeeId: query.responsibleEmployeeId } } } },
+            { asset: { zone: { assignments: { some: { employeeId: query.responsibleEmployeeId } } } } }
+          ]
+        }
+      : {}
+  ]
+});
+
+const buildMaintenanceWhere = (
+  query: DashboardSummaryQuery,
+  since?: Date,
+  dateField: "createdAt" | "completedAt" = "createdAt"
+): Prisma.MaintenanceTaskWhereInput => ({
+  [dateField]: since ? { gte: since } : undefined,
+  AND: [
+    query.zoneId
+      ? {
+          OR: [{ zoneId: query.zoneId }, { asset: { zoneId: query.zoneId } }]
+        }
+      : {},
+    query.responsibleEmployeeId
+      ? {
+          OR: [
+            { zone: { assignments: { some: { employeeId: query.responsibleEmployeeId } } } },
+            { asset: { zone: { assignments: { some: { employeeId: query.responsibleEmployeeId } } } } }
+          ]
+        }
+      : {}
+  ]
+});
+
+const buildAdoptionWhere = (query: DashboardSummaryQuery, since?: Date): Prisma.AdoptionWhereInput => ({
+  startedAt: since ? { gte: since } : undefined,
+  asset: {
+    zoneId: query.zoneId,
+    zone: query.responsibleEmployeeId
+      ? {
+          assignments: {
+            some: { employeeId: query.responsibleEmployeeId }
+          }
+        }
+      : undefined
+  }
+});
+
+const buildCareLogWhere = (query: DashboardSummaryQuery, since?: Date): Prisma.AdoptionCareLogWhereInput => ({
+  loggedAt: since ? { gte: since } : undefined,
+  adoption: {
+    asset: {
+      zoneId: query.zoneId,
+      zone: query.responsibleEmployeeId
+        ? {
+            assignments: {
+              some: { employeeId: query.responsibleEmployeeId }
+            }
+          }
+        : undefined
+    }
+  }
+});
 
 const toCountMap = <T extends string>(items: Array<{ key: T; count: number }>, keys: readonly T[]) =>
   keys.reduce<Record<T, number>>(
@@ -23,8 +125,15 @@ const toCountMap = <T extends string>(items: Array<{ key: T; count: number }>, k
     {} as Record<T, number>
   );
 
-export const getDashboardSummary = async () => {
+export const getDashboardSummary = async (query: DashboardSummaryQuery) => {
   const today = startOfToday();
+  const since = getWindowStart(query.timeWindow);
+  const assetWhere = buildAssetWhere(query, since);
+  const incidentWhere = buildIncidentWhere(query, since);
+  const maintenanceWhere = buildMaintenanceWhere(query, since);
+  const completedMaintenanceWhere = buildMaintenanceWhere(query, since ?? today, "completedAt");
+  const adoptionWhere = buildAdoptionWhere(query, since);
+  const careLogWhere = buildCareLogWhere(query, since ?? today);
 
   const [
     assetTotal,
@@ -42,14 +151,16 @@ export const getDashboardSummary = async () => {
     recentTasks,
     recentAdoptions
   ] = await Promise.all([
-    prisma.greenAsset.count(),
-    prisma.greenAsset.count({ where: { lifecycleStatus: AssetLifecycleStatus.ACTIVE } }),
+    prisma.greenAsset.count({ where: assetWhere }),
+    prisma.greenAsset.count({ where: { ...assetWhere, lifecycleStatus: AssetLifecycleStatus.ACTIVE } }),
     prisma.greenAsset.groupBy({
       by: ["healthStatus"],
+      where: assetWhere,
       _count: { _all: true }
     }),
     prisma.incidentReport.count({
       where: {
+        ...incidentWhere,
         status: {
           in: [IncidentStatus.REPORTED, IncidentStatus.VERIFIED, IncidentStatus.IN_PROGRESS]
         }
@@ -57,10 +168,12 @@ export const getDashboardSummary = async () => {
     }),
     prisma.incidentReport.groupBy({
       by: ["status"],
+      where: incidentWhere,
       _count: { _all: true }
     }),
     prisma.incidentReport.count({
       where: {
+        ...incidentWhere,
         priority: "URGENT",
         status: {
           notIn: [IncidentStatus.RESOLVED, IncidentStatus.REJECTED]
@@ -69,10 +182,12 @@ export const getDashboardSummary = async () => {
     }),
     prisma.maintenanceTask.groupBy({
       by: ["status"],
+      where: maintenanceWhere,
       _count: { _all: true }
     }),
     prisma.maintenanceTask.count({
       where: {
+        ...maintenanceWhere,
         dueAt: { lte: new Date() },
         status: {
           in: [MaintenanceTaskStatus.PLANNED, MaintenanceTaskStatus.ASSIGNED, MaintenanceTaskStatus.IN_PROGRESS]
@@ -81,17 +196,18 @@ export const getDashboardSummary = async () => {
     }),
     prisma.maintenanceTask.count({
       where: {
-        completedAt: { gte: today },
+        ...completedMaintenanceWhere,
         status: MaintenanceTaskStatus.COMPLETED
       }
     }),
     prisma.adoption.count({
-      where: { status: AdoptionStatus.ACTIVE }
+      where: { ...adoptionWhere, status: AdoptionStatus.ACTIVE }
     }),
     prisma.adoptionCareLog.count({
-      where: { loggedAt: { gte: today } }
+      where: careLogWhere
     }),
     prisma.incidentReport.findMany({
+      where: incidentWhere,
       orderBy: { updatedAt: "desc" },
       take: 5,
       select: {
@@ -105,6 +221,7 @@ export const getDashboardSummary = async () => {
       }
     }),
     prisma.maintenanceTask.findMany({
+      where: maintenanceWhere,
       orderBy: [{ updatedAt: "desc" }],
       take: 5,
       select: {
@@ -120,6 +237,7 @@ export const getDashboardSummary = async () => {
       }
     }),
     prisma.adoption.findMany({
+      where: adoptionWhere,
       orderBy: { updatedAt: "desc" },
       take: 5,
       select: {
@@ -140,6 +258,12 @@ export const getDashboardSummary = async () => {
 
   return {
     generatedAt: new Date().toISOString(),
+    filters: {
+      zoneId: query.zoneId ?? null,
+      responsibleEmployeeId: query.responsibleEmployeeId ?? null,
+      timeWindow: query.timeWindow,
+      since: since?.toISOString() ?? null
+    },
     assets: {
       total: assetTotal,
       active: activeAssetTotal,
