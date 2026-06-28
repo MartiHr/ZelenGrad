@@ -54,6 +54,9 @@ a {
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-weight: 800;
   color: #12633f;
   font-size: 1.08rem;
@@ -70,6 +73,9 @@ a {
 .nav a,
 .session-actions a,
 .session-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   border-radius: 6px;
   padding: 0.45rem 0.65rem;
   color: #40534a;
@@ -97,6 +103,12 @@ a {
 }
 
 .session-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.session-actions a > span {
   display: grid;
   gap: 0.05rem;
 }

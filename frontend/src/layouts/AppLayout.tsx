@@ -1,19 +1,21 @@
+import type { IconName } from "@fortawesome/fontawesome-svg-core";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { NavLink, Outlet } from "react-router";
 
 import { useAuth } from "../auth/AuthContext";
 import type { UserRole } from "../auth/authTypes";
 import { LiveNotifications } from "../components/LiveNotifications";
 
-const navigation: Array<{ to: string; label: string; roles?: UserRole[] }> = [
-  { to: "/", label: "Home" },
-  { to: "/map", label: "Green Map" },
-  { to: "/dashboard", label: "Dashboard", roles: ["MANAGER", "ADMIN"] },
-  { to: "/my-forest", label: "My Forest", roles: ["CITIZEN"] },
-  { to: "/worklist", label: "Worklist", roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
-  { to: "/incidents", label: "Incidents", roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
-  { to: "/zones", label: "Zones", roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
-  { to: "/users", label: "Users", roles: ["ADMIN"] },
-  { to: "/audit", label: "Audit", roles: ["ADMIN"] }
+const navigation: Array<{ to: string; label: string; icon: IconName; roles?: UserRole[] }> = [
+  { to: "/", label: "Home", icon: "home" },
+  { to: "/map", label: "Green Map", icon: "map" },
+  { to: "/dashboard", label: "Dashboard", icon: "gauge-high", roles: ["MANAGER", "ADMIN"] },
+  { to: "/my-forest", label: "My Forest", icon: "tree", roles: ["CITIZEN"] },
+  { to: "/worklist", label: "Worklist", icon: "list-check", roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
+  { to: "/incidents", label: "Incidents", icon: "triangle-exclamation", roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
+  { to: "/zones", label: "Zones", icon: "draw-polygon", roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
+  { to: "/users", label: "Users", icon: "users", roles: ["ADMIN"] },
+  { to: "/audit", label: "Audit", icon: "clipboard-list", roles: ["ADMIN"] }
 ];
 
 export const AppLayout = () => {
@@ -24,12 +26,12 @@ export const AppLayout = () => {
     <div className="app-shell">
       <header className="topbar">
         <NavLink to="/" className="brand" aria-label="ZelenGrad home">
-          ZelenGrad
+          <FontAwesomeIcon icon={["fas", "leaf"]} /> ZelenGrad
         </NavLink>
         <nav className="nav" aria-label="Primary navigation">
           {visibleNavigation.map((item) => (
             <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "active" : undefined)}>
-              {item.label}
+              <FontAwesomeIcon icon={["fas", item.icon]} /> {item.label}
             </NavLink>
           ))}
         </nav>
@@ -37,17 +39,20 @@ export const AppLayout = () => {
           {isAuthenticated ? (
             <>
               <NavLink to="/profile">
-                <span>{user?.name}</span>
-                <small>{user?.role}</small>
+                <FontAwesomeIcon icon={["fas", "user"]} />
+                <span>
+                  <span>{user?.name}</span>
+                  <small>{user?.role}</small>
+                </span>
               </NavLink>
               <button type="button" onClick={() => void logout()}>
-                Logout
+                <FontAwesomeIcon icon={["fas", "right-from-bracket"]} /> Logout
               </button>
             </>
           ) : (
             <>
-              <NavLink to="/login">Login</NavLink>
-              <NavLink to="/register">Register</NavLink>
+              <NavLink to="/login"><FontAwesomeIcon icon={["fas", "right-to-bracket"]} /> Login</NavLink>
+              <NavLink to="/register"><FontAwesomeIcon icon={["fas", "user-plus"]} /> Register</NavLink>
             </>
           )}
         </div>
@@ -58,13 +63,13 @@ export const AppLayout = () => {
       </main>
       <footer className="app-footer">
         <div>
-          <strong>ZelenGrad</strong>
+          <strong><FontAwesomeIcon icon={["fas", "leaf"]} /> ZelenGrad</strong>
           <span>Urban greenery registry and field operations workspace.</span>
         </div>
         <nav aria-label="Footer navigation">
-          <NavLink to="/map">Green Map</NavLink>
-          <NavLink to="/about">About</NavLink>
-          {isAuthenticated ? <NavLink to="/profile">Profile</NavLink> : <NavLink to="/login">Login</NavLink>}
+          <NavLink to="/map"><FontAwesomeIcon icon={["fas", "map"]} /> Green Map</NavLink>
+          <NavLink to="/about"><FontAwesomeIcon icon={["fas", "circle-info"]} /> About</NavLink>
+          {isAuthenticated ? <NavLink to="/profile"><FontAwesomeIcon icon={["fas", "user"]} /> Profile</NavLink> : <NavLink to="/login"><FontAwesomeIcon icon={["fas", "right-to-bracket"]} /> Login</NavLink>}
         </nav>
       </footer>
       <LiveNotifications />
