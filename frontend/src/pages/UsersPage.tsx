@@ -88,6 +88,8 @@ export const UsersPage = () => {
   const [emailFilter, setEmailFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [activeFilter, setActiveFilter] = useState("");
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [expandedRewardsUserId, setExpandedRewardsUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -165,6 +167,7 @@ export const UsersPage = () => {
     }
 
     updateRewardForm(managedUser.id, { error: null, success: null, isLoading: true });
+    setExpandedRewardsUserId(managedUser.id);
 
     try {
       const rewards = await apiRequest<RewardTransaction[]>(`/rewards?userId=${managedUser.id}`, { token });
@@ -337,6 +340,13 @@ export const UsersPage = () => {
 
       {error ? <p className="form-error">{error}</p> : null}
 
+      <div className="worklist-summary">
+        <span>{users.length} visible users</span>
+        <span>{users.filter((managedUser) => managedUser.isActive).length} active</span>
+        <span>{users.filter((managedUser) => !managedUser.isActive).length} inactive</span>
+        <span>{users.filter((managedUser) => managedUser.role !== "CITIZEN").length} staff</span>
+      </div>
+
       <div className="user-list">
         {isLoading ? <p>Loading users...</p> : null}
         {!isLoading && users.length === 0 ? <p>No users match the current filters.</p> : null}
@@ -347,22 +357,22 @@ export const UsersPage = () => {
           const isSelf = currentUser?.id === managedUser.id;
 
           return (
-            <article className="user-card" key={managedUser.id}>
+            <article className={`user-card ${managedUser.isActive ? "" : "is-inactive"}`} key={managedUser.id}>
               <header>
                 <div>
                   <p className="eyebrow">{managedUser.role}</p>
                   <h2>{managedUser.name}</h2>
+                  <p className="muted-text">{managedUser.email}</p>
                 </div>
-                <span className={`badge ${managedUser.isActive ? "" : "urgent"}`}>
-                  {managedUser.isActive ? "ACTIVE" : "INACTIVE"}
-                </span>
+                <div className="task-chip-row">
+                  <span className={`badge user-status-badge ${managedUser.isActive ? "active" : "inactive"}`}>
+                    {managedUser.isActive ? "ACTIVE" : "INACTIVE"}
+                  </span>
+                  {isSelf ? <span className="badge">YOU</span> : null}
+                </div>
               </header>
 
               <dl>
-                <div>
-                  <dt>Email</dt>
-                  <dd>{managedUser.email}</dd>
-                </div>
                 <div>
                   <dt>Points</dt>
                   <dd>{managedUser.greenPoints}</dd>
@@ -377,6 +387,26 @@ export const UsersPage = () => {
                 </div>
               </dl>
 
+              <div className="button-row">
+                <button
+                  type="button"
+                  className="muted-button"
+                  onClick={() => setExpandedUserId((current) => (current === managedUser.id ? null : managedUser.id))}
+                >
+                  {expandedUserId === managedUser.id ? "Hide Admin Tools" : "Admin Tools"}
+                </button>
+                <button
+                  type="button"
+                  className="muted-button"
+                  onClick={() =>
+                    setExpandedRewardsUserId((current) => (current === managedUser.id ? null : managedUser.id))
+                  }
+                >
+                  {expandedRewardsUserId === managedUser.id ? "Hide Rewards" : "Rewards"}
+                </button>
+              </div>
+
+              {expandedUserId === managedUser.id ? (
               <form className="inline-form" onSubmit={(event) => void saveUser(event, managedUser)}>
                 <div className="form-grid">
                   <label>
@@ -442,16 +472,18 @@ export const UsersPage = () => {
                     {form.isSaving ? "Saving..." : "Save User"}
                   </button>
                   <button
-                    className={managedUser.isActive ? "danger-button" : "muted-button"}
+                    className={managedUser.isActive ? "danger-button strong-danger-button" : "muted-button"}
                     disabled={form.isDeactivating || !managedUser.isActive || isSelf}
                     onClick={() => void deactivateManagedUser(managedUser)}
                     type="button"
                   >
-                    {form.isDeactivating ? "Deactivating..." : managedUser.isActive ? "Deactivate" : "Deactivated"}
+                    {form.isDeactivating ? "Deactivating..." : managedUser.isActive ? "Deactivate Account" : "Already Inactive"}
                   </button>
                 </div>
               </form>
+              ) : null}
 
+              {expandedRewardsUserId === managedUser.id ? (
               <section className="reward-panel">
                 <div className="button-row">
                   <button
@@ -515,6 +547,7 @@ export const UsersPage = () => {
                   )
                 ) : null}
               </section>
+              ) : null}
             </article>
           );
         })}
