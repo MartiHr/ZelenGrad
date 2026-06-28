@@ -71,46 +71,6 @@ const buildResponsibleZoneFilter = (employeeId: string): Prisma.IncidentReportWh
   ]
 });
 
-const buildEmployeeIncidentFilter = (
-  employeeId: string,
-  responsibleZoneOnly?: boolean,
-  showAssignedToMe?: boolean,
-  showUnassignedInZones?: boolean
-): Prisma.IncidentReportWhereInput => {
-  if (responsibleZoneOnly) {
-    return buildResponsibleZoneFilter(employeeId);
-  }
-
-  if (showAssignedToMe === undefined && showUnassignedInZones === undefined) {
-    return {
-      OR: [
-        { assignedToId: employeeId },
-        {
-          AND: [{ assignedToId: null }, buildResponsibleZoneFilter(employeeId)]
-        }
-      ]
-    };
-  }
-
-  const filters: Prisma.IncidentReportWhereInput[] = [];
-
-  if (showAssignedToMe) {
-    filters.push({ assignedToId: employeeId });
-  }
-
-  if (showUnassignedInZones) {
-    filters.push({
-      AND: [{ assignedToId: null }, buildResponsibleZoneFilter(employeeId)]
-    });
-  }
-
-  if (filters.length === 0) {
-    return {};
-  }
-
-  return { OR: filters };
-};
-
 const getNextIncidentStatuses = (status: IncidentStatus): IncidentStatus[] => {
   switch (status) {
     case IncidentStatus.REPORTED:
@@ -130,7 +90,7 @@ const getNextIncidentStatuses = (status: IncidentStatus): IncidentStatus[] => {
 export const listIncidents = async (query: ListIncidentsQuery, currentUserId: string, canViewAll: boolean) => {
   const responsibilityFilter =
     canViewAll && query.responsibleEmployeeId ? buildResponsibleZoneFilter(query.responsibleEmployeeId) : {};
-  const employeeScopeFilter = !canViewAll ? buildEmployeeIncidentFilter(currentUserId, query.responsibleZoneOnly, query.showAssignedToMe, query.showUnassignedInZones) : {};
+  const reviewerScopeFilter = !canViewAll ? buildResponsibleZoneFilter(currentUserId) : {};
 
   return prisma.incidentReport.findMany({
     where: {
@@ -142,7 +102,7 @@ export const listIncidents = async (query: ListIncidentsQuery, currentUserId: st
           zoneId: query.zoneId
         },
         responsibilityFilter,
-        employeeScopeFilter
+        reviewerScopeFilter
       ]
     },
     orderBy: [{ priority: "desc" }, { createdAt: "desc" }],

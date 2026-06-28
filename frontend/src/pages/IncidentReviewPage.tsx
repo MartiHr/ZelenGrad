@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
@@ -19,7 +19,6 @@ type Incident = {
   zone: { id: string; name: string } | null;
   reporter: { id: string; name: string; email: string } | null;
   verifiedBy: { id: string; name: string; email: string } | null;
-  assignedTo: { id: string; name: string; email: string } | null;
 };
 
 type Zone = {
@@ -46,11 +45,6 @@ export const IncidentReviewPage = () => {
   const [priority, setPriority] = useState("");
   const [zoneId, setZoneId] = useState(() => searchParams.get("zoneId") ?? "");
   const [responsibleEmployeeId, setResponsibleEmployeeId] = useState("");
-  const [responsibleZoneOnly, setResponsibleZoneOnly] = useState(false);
-  const [showAssignedToMe, setShowAssignedToMe] = useState(true);
-  const [showUnassignedInZones, setShowUnassignedInZones] = useState(true);
-  const [isScopeOpen, setIsScopeOpen] = useState(false);
-  const scopeRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -75,18 +69,9 @@ export const IncidentReviewPage = () => {
       params.set("responsibleEmployeeId", responsibleEmployeeId);
     }
 
-    if (!canManageIncidents && responsibleZoneOnly) {
-      params.set("responsibleZoneOnly", "true");
-    }
-
-    if (!canManageIncidents && !responsibleZoneOnly) {
-      params.set("showAssignedToMe", String(showAssignedToMe));
-      params.set("showUnassignedInZones", String(showUnassignedInZones));
-    }
-
     const value = params.toString();
     return value ? `?${value}` : "";
-  }, [canManageIncidents, priority, responsibleEmployeeId, responsibleZoneOnly, showAssignedToMe, showUnassignedInZones, status, zoneId]);
+  }, [canManageIncidents, priority, responsibleEmployeeId, status, zoneId]);
 
   const loadIncidents = async () => {
     if (!token) {
@@ -116,17 +101,6 @@ export const IncidentReviewPage = () => {
   }, []);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (scopeRef.current && !scopeRef.current.contains(event.target as Node)) {
-        setIsScopeOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
     if (!token || !canManageIncidents) {
       setStaffUsers([]);
       return;
@@ -138,15 +112,6 @@ export const IncidentReviewPage = () => {
         setError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
       });
   }, [canManageIncidents, token]);
-
-  const getScopeLabel = () => {
-    if (responsibleZoneOnly) return "All in my zones";
-
-    const parts: string[] = [];
-    if (showAssignedToMe) parts.push("Assigned");
-    if (showUnassignedInZones) parts.push("Unassigned");
-    return parts.length === 0 ? "None" : parts.join(" + ");
-  };
 
   const updateIncidentStatus = async (incidentId: string, nextStatus: string) => {
     if (!token) {
@@ -220,60 +185,10 @@ export const IncidentReviewPage = () => {
             />
           </label>
         ) : (
-          <label>
-            Scope
-            <div className="scope-dropdown" ref={scopeRef}>
-              <button type="button" className="scope-dropdown-trigger" onClick={() => setIsScopeOpen((c) => !c)}>
-                {getScopeLabel()}
-              </button>
-              {isScopeOpen ? (
-                <div className="scope-dropdown-panel">
-                  <label className="scope-option">
-                    <input
-                      type="checkbox"
-                      checked={showAssignedToMe}
-                      disabled={responsibleZoneOnly}
-                      onChange={(event) => {
-                        setShowAssignedToMe(event.target.checked);
-                        if (event.target.checked) {
-                          setResponsibleZoneOnly(false);
-                        }
-                      }}
-                    />
-                    Assigned to me
-                  </label>
-                  <label className="scope-option">
-                    <input
-                      type="checkbox"
-                      checked={showUnassignedInZones}
-                      disabled={responsibleZoneOnly}
-                      onChange={(event) => {
-                        setShowUnassignedInZones(event.target.checked);
-                        if (event.target.checked) {
-                          setResponsibleZoneOnly(false);
-                        }
-                      }}
-                    />
-                    Unassigned in my zones
-                  </label>
-                  <label className="scope-option">
-                    <input
-                      type="checkbox"
-                      checked={responsibleZoneOnly}
-                      onChange={(event) => {
-                        setResponsibleZoneOnly(event.target.checked);
-                        if (event.target.checked) {
-                          setShowAssignedToMe(false);
-                          setShowUnassignedInZones(false);
-                        }
-                      }}
-                    />
-                    All incidents in my responsible zones
-                  </label>
-                </div>
-              ) : null}
-            </div>
-          </label>
+          <div className="field-action">
+            <span>Scope</span>
+            <strong>My responsible zones</strong>
+          </div>
         )}
       </div>
 
@@ -359,10 +274,6 @@ export const IncidentReviewPage = () => {
               <div>
                 <dt>Reporter</dt>
                 <dd>{incident.reporter?.name ?? "Unknown"}</dd>
-              </div>
-              <div>
-                <dt>Assigned to</dt>
-                <dd>{incident.assignedTo?.name ?? "Unassigned"}</dd>
               </div>
               <div>
                 <dt>Updated</dt>
