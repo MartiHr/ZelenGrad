@@ -78,12 +78,6 @@ const MapBounds = ({ assets, draftCoordinates, zones }: MapBoundsProps) => {
       return;
     }
 
-    const zoneCoordinates = zones.flatMap((zone) => getZonePolygons(zone.boundary).flat());
-    if (zoneCoordinates.length >= 3) {
-      map.fitBounds(L.latLngBounds(zoneCoordinates), { padding: [42, 42], maxZoom: 14 });
-      return;
-    }
-
     const validAssets = assets.filter(
       (asset) => Number.isFinite(Number(asset.latitude)) && Number.isFinite(Number(asset.longitude))
     );
