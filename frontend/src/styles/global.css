@@ -220,6 +220,10 @@ h1 {
   color: #173f2d;
 }
 
+h1 svg {
+  margin-right: 0.5rem;
+}
+
 p {
   margin: 0;
   max-width: 72ch;
