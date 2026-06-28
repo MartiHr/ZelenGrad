@@ -1,14 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
-import { StaffSearchSelect } from "../components/StaffSearchSelect";
-import {
-  validateDateOrder,
-  validateRequiredText,
-  type FieldErrors
-} from "../validation";
 
 type Asset = {
   id: string;
@@ -44,14 +38,6 @@ type AssetHistory = {
   }>;
 };
 
-type CreatedIncident = {
-  id: string;
-  type: string;
-  priority: string;
-  title: string;
-  status: string;
-};
-
 type Adoption = {
   id: string;
   status: string;
@@ -63,35 +49,6 @@ type Adoption = {
   };
 };
 
-type MaintenanceTask = {
-  id: string;
-  title: string;
-  type: string;
-  status: string;
-  priority: string;
-};
-
-type StaffUser = {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-};
-
-type ReportField = "title" | "description";
-type MaintenanceField = "title" | "dueAt";
-
-const incidentTypes = [
-  "DRY_TREE",
-  "VANDALISM",
-  "DISEASE",
-  "FALLEN_BRANCH",
-  "WASTE",
-  "OTHER"
-];
-
-const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
-const maintenanceTypes = ["WATERING", "PRUNING", "INSPECTION", "TREATMENT", "CLEANUP", "REMOVAL", "OTHER"];
 const getAssetPhotoUrl = (asset: Asset) =>
   typeof asset.metadata?.photoUrl === "string" ? asset.metadata.photoUrl : "";
 
@@ -113,30 +70,9 @@ export const AssetDetailsPage = () => {
   const [history, setHistory] = useState<AssetHistory | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [reportType, setReportType] = useState("DRY_TREE");
-  const [reportPriority, setReportPriority] = useState("MEDIUM");
-  const [reportTitle, setReportTitle] = useState("");
-  const [reportDescription, setReportDescription] = useState("");
-  const [reportError, setReportError] = useState<string | null>(null);
-  const [reportFieldErrors, setReportFieldErrors] = useState<FieldErrors<ReportField>>({});
-  const [createdIncident, setCreatedIncident] = useState<CreatedIncident | null>(null);
-  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [adoptionError, setAdoptionError] = useState<string | null>(null);
   const [createdAdoption, setCreatedAdoption] = useState<Adoption | null>(null);
   const [isAdopting, setIsAdopting] = useState(false);
-  const [maintenanceType, setMaintenanceType] = useState("INSPECTION");
-  const [maintenancePriority, setMaintenancePriority] = useState("MEDIUM");
-  const [maintenanceTitle, setMaintenanceTitle] = useState("");
-  const [maintenanceDescription, setMaintenanceDescription] = useState("");
-  const [scheduledFor, setScheduledFor] = useState("");
-  const [dueAt, setDueAt] = useState("");
-  const [assignedToId, setAssignedToId] = useState("");
-  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
-  const [staffError, setStaffError] = useState<string | null>(null);
-  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
-  const [maintenanceFieldErrors, setMaintenanceFieldErrors] = useState<FieldErrors<MaintenanceField>>({});
-  const [createdMaintenanceTask, setCreatedMaintenanceTask] = useState<MaintenanceTask | null>(null);
-  const [isSchedulingMaintenance, setIsSchedulingMaintenance] = useState(false);
 
   useEffect(() => {
     if (!assetId) {
@@ -162,21 +98,6 @@ export const AssetDetailsPage = () => {
       .finally(() => setIsLoading(false));
   }, [assetId]);
 
-  useEffect(() => {
-    if (!token || !hasRole("MANAGER", "ADMIN")) {
-      setStaffUsers([]);
-      return;
-    }
-
-    setStaffError(null);
-
-    apiRequest<StaffUser[]>("/users/staff", { token })
-      .then(setStaffUsers)
-      .catch((caughtError) => {
-        setStaffError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
-      });
-  }, [hasRole, token]);
-
   if (isLoading) {
     return (
       <section className="page">
@@ -195,66 +116,6 @@ export const AssetDetailsPage = () => {
       </section>
     );
   }
-
-  const submitIncidentReport = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!token) {
-      setReportError("Please log in before reporting an incident.");
-      return;
-    }
-
-    const nextFieldErrors: FieldErrors<ReportField> = {};
-    const titleError = validateRequiredText(reportTitle, "Title", 3);
-    const descriptionError = validateRequiredText(reportDescription, "Description", 10);
-
-    if (titleError) {
-      nextFieldErrors.title = titleError;
-    }
-
-    if (descriptionError) {
-      nextFieldErrors.description = descriptionError;
-    }
-
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setReportFieldErrors(nextFieldErrors);
-      setReportError("Fix the highlighted incident fields before submitting.");
-      setCreatedIncident(null);
-      return;
-    }
-
-    setIsSubmittingReport(true);
-    setReportError(null);
-    setReportFieldErrors({});
-    setCreatedIncident(null);
-
-    try {
-      const incident = await apiRequest<CreatedIncident>("/incidents", {
-        method: "POST",
-        token,
-        body: {
-          type: reportType,
-          priority: reportPriority,
-          title: reportTitle.trim(),
-          description: reportDescription.trim(),
-          assetId: asset.id,
-          zoneId: asset.zone?.id,
-          latitude: asset.latitude,
-          longitude: asset.longitude
-        }
-      });
-
-      setCreatedIncident(incident);
-      setReportTitle("");
-      setReportDescription("");
-      setReportPriority("MEDIUM");
-      await refreshUser();
-    } catch (caughtError) {
-      setReportError(caughtError instanceof ApiError ? caughtError.message : "Could not submit incident report.");
-    } finally {
-      setIsSubmittingReport(false);
-    }
-  };
 
   const adoptTree = async () => {
     if (!token) {
@@ -281,72 +142,6 @@ export const AssetDetailsPage = () => {
       setAdoptionError(caughtError instanceof ApiError ? caughtError.message : "Could not adopt this tree.");
     } finally {
       setIsAdopting(false);
-    }
-  };
-
-  const scheduleMaintenance = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!token) {
-      setMaintenanceError("Please log in before scheduling maintenance.");
-      return;
-    }
-
-    const nextFieldErrors: FieldErrors<MaintenanceField> = {};
-    const titleError = validateRequiredText(maintenanceTitle, "Title", 3);
-    const dateOrderError = validateDateOrder(scheduledFor, dueAt, "scheduled date", "Due date");
-
-    if (titleError) {
-      nextFieldErrors.title = titleError;
-    }
-
-    if (dateOrderError) {
-      nextFieldErrors.dueAt = dateOrderError;
-    }
-
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setMaintenanceFieldErrors(nextFieldErrors);
-      setMaintenanceError("Fix the highlighted maintenance fields before scheduling.");
-      setCreatedMaintenanceTask(null);
-      return;
-    }
-
-    setIsSchedulingMaintenance(true);
-    setMaintenanceError(null);
-    setMaintenanceFieldErrors({});
-    setCreatedMaintenanceTask(null);
-
-    try {
-      const task = await apiRequest<MaintenanceTask>("/maintenance", {
-        method: "POST",
-        token,
-        body: {
-          title: maintenanceTitle.trim(),
-          description: maintenanceDescription.trim() || undefined,
-          type: maintenanceType,
-          priority: maintenancePriority,
-          scheduledFor: scheduledFor || undefined,
-          dueAt: dueAt || undefined,
-          assetId: asset.id,
-          zoneId: asset.zone?.id,
-          assignedToId: assignedToId || undefined
-        }
-      });
-
-      setCreatedMaintenanceTask(task);
-      setMaintenanceTitle("");
-      setMaintenanceDescription("");
-      setScheduledFor("");
-      setDueAt("");
-      setAssignedToId("");
-      setMaintenanceType("INSPECTION");
-      setMaintenancePriority("MEDIUM");
-    } catch (caughtError) {
-      setMaintenanceError(
-        caughtError instanceof ApiError ? caughtError.message : "Could not schedule maintenance task."
-      );
-    } finally {
-      setIsSchedulingMaintenance(false);
     }
   };
 
@@ -447,72 +242,15 @@ export const AssetDetailsPage = () => {
           <h2>Actions</h2>
           <div className="action-stack">
             {isAuthenticated ? (
-              <form className="inline-form action-section" onSubmit={(event) => void submitIncidentReport(event)} noValidate>
+              <div className="action-section">
                 <div>
                   <h3>Report Incident</h3>
                   <p className="muted-text">Send a field observation to the review queue.</p>
                 </div>
-                <label>
-                  Incident type
-                  <select value={reportType} onChange={(event) => setReportType(event.target.value)}>
-                    {incidentTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  Priority
-                  <select value={reportPriority} onChange={(event) => setReportPriority(event.target.value)}>
-                    {priorities.map((priority) => (
-                      <option key={priority} value={priority}>
-                        {priority}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  Title
-                  <input
-                    aria-invalid={Boolean(reportFieldErrors.title)}
-                    value={reportTitle}
-                    onChange={(event) => setReportTitle(event.target.value)}
-                    minLength={3}
-                    maxLength={160}
-                    required
-                    placeholder="Dry branches near sidewalk"
-                  />
-                  {reportFieldErrors.title ? <span className="field-error">{reportFieldErrors.title}</span> : null}
-                </label>
-
-                <label>
-                  Description
-                  <textarea
-                    aria-invalid={Boolean(reportFieldErrors.description)}
-                    value={reportDescription}
-                    onChange={(event) => setReportDescription(event.target.value)}
-                    minLength={10}
-                    maxLength={2000}
-                    required
-                    placeholder="Describe what you noticed and where it is visible."
-                  />
-                  {reportFieldErrors.description ? <span className="field-error">{reportFieldErrors.description}</span> : null}
-                </label>
-
-                {reportError ? <p className="form-error">{reportError}</p> : null}
-                {createdIncident ? (
-                  <p className="form-success">
-                    Incident {createdIncident.status.toLowerCase()} as {createdIncident.title}.
-                  </p>
-                ) : null}
-
-                <button type="submit" disabled={isSubmittingReport}>
-                  {isSubmittingReport ? "Submitting..." : "Report Incident"}
-                </button>
-              </form>
+                <div className="button-row">
+                  <Link to={`/assets/${asset.id}/report`}>Report Incident</Link>
+                </div>
+              </div>
             ) : (
               <div className="auth-prompt">
                 <p>Log in as a citizen to report damage, disease, waste, or other issues for this asset.</p>
@@ -541,105 +279,17 @@ export const AssetDetailsPage = () => {
               </div>
             ) : null}
             {isAuthenticated && hasRole("MANAGER", "ADMIN") ? (
-              <form className="inline-form action-section" onSubmit={(event) => void scheduleMaintenance(event)} noValidate>
+              <div className="action-section">
                 <div>
                   <h3>Schedule Maintenance</h3>
                   <p className="muted-text">
                     Leave assignee empty to place the task in the responsible zone worklist.
                   </p>
                 </div>
-                <label>
-                  Task type
-                  <select value={maintenanceType} onChange={(event) => setMaintenanceType(event.target.value)}>
-                    {maintenanceTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  Priority
-                  <select
-                    value={maintenancePriority}
-                    onChange={(event) => setMaintenancePriority(event.target.value)}
-                  >
-                    {priorities.map((priority) => (
-                      <option key={priority} value={priority}>
-                        {priority}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  Title
-                  <input
-                    aria-invalid={Boolean(maintenanceFieldErrors.title)}
-                    value={maintenanceTitle}
-                    onChange={(event) => setMaintenanceTitle(event.target.value)}
-                    minLength={3}
-                    maxLength={160}
-                    required
-                    placeholder={`Inspect ${asset.commonName ?? asset.species}`}
-                  />
-                  {maintenanceFieldErrors.title ? <span className="field-error">{maintenanceFieldErrors.title}</span> : null}
-                </label>
-
-                <label>
-                  Description
-                  <textarea
-                    value={maintenanceDescription}
-                    onChange={(event) => setMaintenanceDescription(event.target.value)}
-                    maxLength={1000}
-                    placeholder="Describe the planned work for the field team."
-                  />
-                </label>
-
-                <label>
-                  Scheduled for
-                  <input
-                    type="datetime-local"
-                    value={scheduledFor}
-                    onChange={(event) => setScheduledFor(event.target.value)}
-                  />
-                </label>
-
-                <label>
-                  Due at
-                  <input
-                    aria-invalid={Boolean(maintenanceFieldErrors.dueAt)}
-                    type="datetime-local"
-                    value={dueAt}
-                    onChange={(event) => setDueAt(event.target.value)}
-                  />
-                  {maintenanceFieldErrors.dueAt ? <span className="field-error">{maintenanceFieldErrors.dueAt}</span> : null}
-                </label>
-
-                <label>
-                  Assignee
-                  <StaffSearchSelect
-                    value={assignedToId}
-                    onChange={setAssignedToId}
-                    staffUsers={staffUsers}
-                    placeholder="Unassigned"
-                  />
-                </label>
-
-                {staffError ? <p className="form-error">{staffError}</p> : null}
-                {maintenanceError ? <p className="form-error">{maintenanceError}</p> : null}
-                {createdMaintenanceTask ? (
-                  <p className="form-success">
-                    Created {createdMaintenanceTask.status.toLowerCase()} task {createdMaintenanceTask.title}. View it in{" "}
-                    <Link to="/worklist">Worklist</Link>.
-                  </p>
-                ) : null}
-
-                <button type="submit" disabled={isSchedulingMaintenance}>
-                  {isSchedulingMaintenance ? "Scheduling..." : "Schedule Maintenance"}
-                </button>
-              </form>
+                <div className="button-row">
+                  <Link to={`/assets/${asset.id}/maintenance/new`}>Schedule Maintenance</Link>
+                </div>
+              </div>
             ) : null}
             {isAuthenticated && hasRole("EMPLOYEE") ? (
               <div className="auth-prompt">

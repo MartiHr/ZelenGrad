@@ -6,6 +6,8 @@ import { AboutPage } from "./pages/AboutPage";
 import { AuditPage } from "./pages/AuditPage";
 import { AssetCreatePage } from "./pages/AssetCreatePage";
 import { AssetDetailsPage } from "./pages/AssetDetailsPage";
+import { AssetIncidentReportPage } from "./pages/AssetIncidentReportPage";
+import { AssetMaintenanceSchedulePage } from "./pages/AssetMaintenanceSchedulePage";
 import { AssetRegistryEditPage } from "./pages/AssetRegistryEditPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { GreenMapPage } from "./pages/GreenMapPage";
@@ -114,6 +116,22 @@ export const router = createBrowserRouter([
         )
       },
       { path: "assets/:assetId", element: <AssetDetailsPage /> },
+      {
+        path: "assets/:assetId/report",
+        element: (
+          <ProtectedRoute>
+            <AssetIncidentReportPage />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "assets/:assetId/maintenance/new",
+        element: (
+          <ProtectedRoute roles={["MANAGER", "ADMIN"]}>
+            <AssetMaintenanceSchedulePage />
+          </ProtectedRoute>
+        )
+      },
       {
         path: "assets/:assetId/edit",
         element: (
