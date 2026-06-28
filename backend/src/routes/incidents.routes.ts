@@ -4,7 +4,7 @@ import { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { validateQuery } from "../middleware/validateQuery.js";
-import { createIncident, getIncidentById, listIncidents, updateIncident } from "../services/incidents.service.js";
+import { createIncident, getIncidentForUser, listIncidents, updateIncident } from "../services/incidents.service.js";
 import {
   createIncidentSchema,
   listIncidentsQuerySchema,
@@ -61,7 +61,8 @@ incidentsRouter.get(
         return;
       }
 
-      response.json(await getIncidentById(incidentId));
+      const canViewAll = request.user!.role === UserRole.MANAGER || request.user!.role === UserRole.ADMIN;
+      response.json(await getIncidentForUser(incidentId, request.user!.id, canViewAll));
     } catch (error) {
       next(error);
     }
@@ -82,7 +83,8 @@ incidentsRouter.put(
         return;
       }
 
-      response.json(await updateIncident(incidentId, request.body, request.user!.id));
+      const canViewAll = request.user!.role === UserRole.MANAGER || request.user!.role === UserRole.ADMIN;
+      response.json(await updateIncident(incidentId, request.body, request.user!.id, canViewAll));
     } catch (error) {
       next(error);
     }

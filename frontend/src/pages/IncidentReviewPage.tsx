@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { StaffSearchSelect } from "../components/StaffSearchSelect";
+import { getNextIncidentStatuses, incidentStatusHints, incidentStatuses } from "../incidents/statusFlow";
 
 type Incident = {
   id: string;
@@ -32,32 +33,7 @@ type StaffUser = {
   role: string;
 };
 
-const statuses = ["REPORTED", "VERIFIED", "IN_PROGRESS", "RESOLVED", "REJECTED"];
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
-const statusHints: Record<string, string> = {
-  REPORTED: "New report waiting for triage.",
-  VERIFIED: "Confirmed and ready for action.",
-  IN_PROGRESS: "Field response is underway.",
-  RESOLVED: "Closed after response.",
-  REJECTED: "Closed without action."
-};
-
-const getNextStatuses = (status: string) => {
-  switch (status) {
-    case "REPORTED":
-      return ["VERIFIED", "REJECTED"];
-    case "VERIFIED":
-      return ["IN_PROGRESS", "RESOLVED", "REJECTED", "REPORTED"];
-    case "IN_PROGRESS":
-      return ["RESOLVED", "REJECTED", "VERIFIED"];
-    case "RESOLVED":
-      return ["IN_PROGRESS", "REPORTED"];
-    case "REJECTED":
-      return ["REPORTED", "VERIFIED"];
-    default:
-      return statuses.filter((nextStatus) => nextStatus !== status);
-  }
-};
 
 export const IncidentReviewPage = () => {
   const { hasRole, token } = useAuth();
@@ -68,7 +44,6 @@ export const IncidentReviewPage = () => {
   const [priority, setPriority] = useState("");
   const [zoneId, setZoneId] = useState("");
   const [responsibleEmployeeId, setResponsibleEmployeeId] = useState("");
-  const [reviewScope, setReviewScope] = useState("all");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -93,13 +68,9 @@ export const IncidentReviewPage = () => {
       params.set("responsibleEmployeeId", responsibleEmployeeId);
     }
 
-    if (!canManageIncidents && reviewScope === "responsible-zones") {
-      params.set("responsibleZoneOnly", "true");
-    }
-
     const value = params.toString();
     return value ? `?${value}` : "";
-  }, [canManageIncidents, priority, responsibleEmployeeId, reviewScope, status, zoneId]);
+  }, [canManageIncidents, priority, responsibleEmployeeId, status, zoneId]);
 
   const loadIncidents = async () => {
     if (!token) {
@@ -173,7 +144,7 @@ export const IncidentReviewPage = () => {
           Status
           <select value={status} onChange={(event) => setStatus(event.target.value)}>
             <option value="">All</option>
-            {statuses.map((statusOption) => (
+            {incidentStatuses.map((statusOption) => (
               <option key={statusOption} value={statusOption}>
                 {statusOption}
               </option>
@@ -213,13 +184,10 @@ export const IncidentReviewPage = () => {
             />
           </label>
         ) : (
-          <label>
-            Scope
-            <select value={reviewScope} onChange={(event) => setReviewScope(event.target.value)}>
-              <option value="all">All incidents</option>
-              <option value="responsible-zones">My responsible zones</option>
-            </select>
-          </label>
+          <div className="field-action">
+            <span>Scope</span>
+            <strong>My responsible zones</strong>
+          </div>
         )}
       </div>
 
@@ -272,7 +240,7 @@ export const IncidentReviewPage = () => {
         {isLoading ? <p>Loading incidents...</p> : null}
         {!isLoading && incidents.length === 0 ? <p>No incidents match the current filters.</p> : null}
         {incidents.map((incident) => {
-          const nextStatuses = getNextStatuses(incident.status);
+          const nextStatuses = getNextIncidentStatuses(incident.status);
           const isUpdating = updatingId === incident.id;
 
           return (
@@ -281,7 +249,7 @@ export const IncidentReviewPage = () => {
               <div>
                 <p className="eyebrow">{incident.type}</p>
                 <h2>{incident.title}</h2>
-                <p className="muted-text">{statusHints[incident.status] ?? "Incident report"}</p>
+                <p className="muted-text">{incidentStatusHints[incident.status] ?? "Incident report"}</p>
               </div>
               <div className="task-chip-row">
                 <span className={`badge status-badge ${incident.status.toLowerCase()}`}>{incident.status}</span>
@@ -323,6 +291,7 @@ export const IncidentReviewPage = () => {
                   {isUpdating ? "Updating..." : statusOption}
                 </button>
               ))}
+              {nextStatuses.length === 0 ? <span className="muted-text">No status actions available.</span> : null}
             </div>
           </article>
           );

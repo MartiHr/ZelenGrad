@@ -64,10 +64,26 @@ const buildResponsibleZoneFilter = (employeeId: string): Prisma.IncidentReportWh
   ]
 });
 
+const getNextIncidentStatuses = (status: IncidentStatus): IncidentStatus[] => {
+  switch (status) {
+    case IncidentStatus.REPORTED:
+      return [IncidentStatus.VERIFIED, IncidentStatus.REJECTED];
+    case IncidentStatus.VERIFIED:
+      return [IncidentStatus.IN_PROGRESS, IncidentStatus.REJECTED, IncidentStatus.REPORTED];
+    case IncidentStatus.IN_PROGRESS:
+      return [IncidentStatus.RESOLVED, IncidentStatus.REJECTED, IncidentStatus.VERIFIED];
+    case IncidentStatus.RESOLVED:
+    case IncidentStatus.REJECTED:
+      return [IncidentStatus.REPORTED];
+    default:
+      return [];
+  }
+};
+
 export const listIncidents = async (query: ListIncidentsQuery, currentUserId: string, canViewAll: boolean) => {
   const responsibilityFilter =
     canViewAll && query.responsibleEmployeeId ? buildResponsibleZoneFilter(query.responsibleEmployeeId) : {};
-  const reviewerScopeFilter = !canViewAll && query.responsibleZoneOnly ? buildResponsibleZoneFilter(currentUserId) : {};
+  const reviewerScopeFilter = !canViewAll ? buildResponsibleZoneFilter(currentUserId) : {};
 
   return prisma.incidentReport.findMany({
     where: {
@@ -138,9 +154,43 @@ export const createIncident = async (input: CreateIncidentInput, reporterId: str
   return incident;
 };
 
-export const updateIncident = async (incidentId: string, input: UpdateIncidentInput, verifierId: string) => {
-  const existingIncident = await getIncidentById(incidentId);
+export const getIncidentForUser = async (incidentId: string, currentUserId: string, canViewAll: boolean) => {
+  const incident = await getIncidentById(incidentId);
+
+  if (canViewAll) {
+    return incident;
+  }
+
+  const responsibleIncidentCount = await prisma.incidentReport.count({
+    where: {
+      id: incidentId,
+      ...buildResponsibleZoneFilter(currentUserId)
+    }
+  });
+
+  if (responsibleIncidentCount === 0) {
+    throw new AppError(403, "You do not have access to this incident report.");
+  }
+
+  return incident;
+};
+
+export const updateIncident = async (
+  incidentId: string,
+  input: UpdateIncidentInput,
+  verifierId: string,
+  canViewAll: boolean
+) => {
+  const existingIncident = await getIncidentForUser(incidentId, verifierId, canViewAll);
   const nextStatus = input.status;
+
+  if (nextStatus && nextStatus !== existingIncident.status) {
+    const allowedStatuses = getNextIncidentStatuses(existingIncident.status);
+
+    if (!allowedStatuses.includes(nextStatus)) {
+      throw new AppError(409, `Cannot move incident from ${existingIncident.status} to ${nextStatus}.`);
+    }
+  }
 
   const shouldMarkReviewed =
     nextStatus === IncidentStatus.VERIFIED ||

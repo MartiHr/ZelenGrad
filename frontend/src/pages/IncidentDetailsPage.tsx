@@ -3,6 +3,8 @@ import { Link, useParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { getNextIncidentStatuses, incidentStatusHints } from "../incidents/statusFlow";
+import { validateRequiredText, type FieldErrors } from "../validation";
 
 type Incident = {
   id: string;
@@ -45,32 +47,8 @@ type IncidentEditForm = {
   photoUrls: string;
 };
 
-const statuses = ["REPORTED", "VERIFIED", "IN_PROGRESS", "RESOLVED", "REJECTED"];
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
-const statusHints: Record<string, string> = {
-  REPORTED: "New report waiting for triage.",
-  VERIFIED: "Confirmed and ready for action.",
-  IN_PROGRESS: "Field response is underway.",
-  RESOLVED: "Closed after response.",
-  REJECTED: "Closed without action."
-};
-
-const getNextStatuses = (status: string) => {
-  switch (status) {
-    case "REPORTED":
-      return ["VERIFIED", "REJECTED"];
-    case "VERIFIED":
-      return ["IN_PROGRESS", "RESOLVED", "REJECTED", "REPORTED"];
-    case "IN_PROGRESS":
-      return ["RESOLVED", "REJECTED", "VERIFIED"];
-    case "RESOLVED":
-      return ["IN_PROGRESS", "REPORTED"];
-    case "REJECTED":
-      return ["REPORTED", "VERIFIED"];
-    default:
-      return statuses.filter((nextStatus) => nextStatus !== status);
-  }
-};
+type IncidentEditField = "title" | "description" | "photoUrls";
 
 const createIncidentEditForm = (incident: Incident): IncidentEditForm => ({
   title: incident.title,
@@ -105,6 +83,7 @@ export const IncidentDetailsPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<IncidentEditForm | null>(null);
+  const [editFieldErrors, setEditFieldErrors] = useState<FieldErrors<IncidentEditField>>({});
 
   useEffect(() => {
     if (!incidentId || !token) {
@@ -173,8 +152,8 @@ export const IncidentDetailsPage = () => {
       return;
     }
 
-    setIsSaving(true);
     setEditError(null);
+    setEditFieldErrors({});
     setEditSuccess(null);
 
     try {
@@ -182,13 +161,44 @@ export const IncidentDetailsPage = () => {
         .split("\n")
         .map((photoUrl) => photoUrl.trim())
         .filter(Boolean);
+      const nextFieldErrors: FieldErrors<IncidentEditField> = {};
+      const titleError = validateRequiredText(editForm.title, "Title", 3);
+      const descriptionError = validateRequiredText(editForm.description, "Description", 10);
+      const invalidPhotoUrl = photoUrls.find((photoUrl) => {
+        try {
+          new URL(photoUrl);
+          return false;
+        } catch {
+          return true;
+        }
+      });
+
+      if (titleError) {
+        nextFieldErrors.title = titleError;
+      }
+
+      if (descriptionError) {
+        nextFieldErrors.description = descriptionError;
+      }
+
+      if (invalidPhotoUrl) {
+        nextFieldErrors.photoUrls = "Every photo URL must be a valid URL.";
+      }
+
+      if (Object.keys(nextFieldErrors).length > 0) {
+        setEditFieldErrors(nextFieldErrors);
+        setEditError("Fix the highlighted incident fields before saving.");
+        return;
+      }
+
+      setIsSaving(true);
 
       const updatedIncident = await apiRequest<Incident>(`/incidents/${incident.id}`, {
         method: "PUT",
         token,
         body: {
-          title: editForm.title,
-          description: editForm.description,
+          title: editForm.title.trim(),
+          description: editForm.description.trim(),
           priority: editForm.priority,
           assetId: editForm.assetId || null,
           zoneId: editForm.zoneId || null,
@@ -227,7 +237,7 @@ export const IncidentDetailsPage = () => {
     );
   }
 
-  const nextStatuses = getNextStatuses(incident.status);
+  const nextStatuses = getNextIncidentStatuses(incident.status);
 
   return (
     <section className="page">
@@ -250,7 +260,7 @@ export const IncidentDetailsPage = () => {
       {editForm ? (
         <article className="panel details-panel">
           <h2>Triage Editor</h2>
-          <form className="inline-form asset-form" onSubmit={(event) => void saveIncident(event)}>
+          <form className="inline-form asset-form" onSubmit={(event) => void saveIncident(event)} noValidate>
             <div className="form-grid">
               <label>
                 Priority
@@ -292,31 +302,37 @@ export const IncidentDetailsPage = () => {
               <label>
                 Title
                 <input
+                  aria-invalid={Boolean(editFieldErrors.title)}
                   value={editForm.title}
                   onChange={(event) => updateEditForm({ title: event.target.value })}
                   minLength={3}
                   maxLength={160}
                   required
                 />
+                {editFieldErrors.title ? <span className="field-error">{editFieldErrors.title}</span> : null}
               </label>
             </div>
             <label>
               Description
               <textarea
+                aria-invalid={Boolean(editFieldErrors.description)}
                 value={editForm.description}
                 onChange={(event) => updateEditForm({ description: event.target.value })}
                 minLength={10}
                 maxLength={2000}
                 required
               />
+              {editFieldErrors.description ? <span className="field-error">{editFieldErrors.description}</span> : null}
             </label>
             <label>
               Photo URLs
               <textarea
+                aria-invalid={Boolean(editFieldErrors.photoUrls)}
                 value={editForm.photoUrls}
                 onChange={(event) => updateEditForm({ photoUrls: event.target.value })}
                 placeholder="https://example.com/photo.jpg"
               />
+              {editFieldErrors.photoUrls ? <span className="field-error">{editFieldErrors.photoUrls}</span> : null}
             </label>
 
             {editError ? <p className="form-error">{editError}</p> : null}
@@ -332,7 +348,7 @@ export const IncidentDetailsPage = () => {
       <div className="details-grid">
         <article className="panel details-panel">
           <h2>Review</h2>
-          <p className="muted-text">{statusHints[incident.status] ?? "Incident report"}</p>
+          <p className="muted-text">{incidentStatusHints[incident.status] ?? "Incident report"}</p>
           <dl>
             <div>
               <dt>Status</dt>
