@@ -8,6 +8,7 @@ import { StaffSearchSelect } from "../components/StaffSearchSelect";
 type DashboardEvent = {
   type: string;
   payload: string;
+  receivedAt: string;
 };
 
 type CountMap = Record<string, number>;
@@ -117,6 +118,109 @@ const sumCounts = (counts: CountMap, keys: string[]) => keys.reduce((total, key)
 const getWindowLabel = (timeWindow: string) =>
   timeWindows.find((windowOption) => windowOption.value === timeWindow)?.label.toLowerCase() ?? "selected window";
 
+const getPayload = (data: string): Record<string, unknown> => {
+  try {
+    const parsed = JSON.parse(data);
+    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+};
+
+const textValue = (value: unknown) => (typeof value === "string" && value.trim() ? value : null);
+
+const formatRelativeTime = (value: string) => {
+  const seconds = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 1000));
+
+  if (seconds < 10) {
+    return "just now";
+  }
+
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  }
+
+  const minutes = Math.round(seconds / 60);
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.round(minutes / 60);
+  return `${hours}h ago`;
+};
+
+const getEventCategory = (type: string) => {
+  if (type.startsWith("incident")) {
+    return "incident";
+  }
+
+  if (type.startsWith("maintenance")) {
+    return "maintenance";
+  }
+
+  if (type.startsWith("adoption")) {
+    return "adoption";
+  }
+
+  if (type.startsWith("asset")) {
+    return "asset";
+  }
+
+  return "system";
+};
+
+const describeEvent = (event: DashboardEvent) => {
+  const payload = getPayload(event.payload);
+  const title = textValue(payload.title);
+  const assetName = textValue(payload.assetName);
+  const status = textValue(payload.status);
+  const action = textValue(payload.action);
+
+  switch (event.type) {
+    case "connected":
+      return {
+        title: "Live connection ready",
+        detail: "Dashboard is listening for city updates."
+      };
+    case "incident.created":
+      return {
+        title: "New incident reported",
+        detail: title ? `${title}${status ? ` is ${status.toLowerCase()}` : ""}.` : "A citizen report entered the review queue."
+      };
+    case "incident.updated":
+      return {
+        title: "Incident updated",
+        detail: title ? `${title}${status ? ` moved to ${status.toLowerCase()}` : " changed"}.` : "Incident review status changed."
+      };
+    case "maintenance.updated":
+      return {
+        title: "Maintenance updated",
+        detail: title ? `${title}${status ? ` is ${status.toLowerCase()}` : " changed"}.` : "A maintenance task changed."
+      };
+    case "adoption.created":
+      return {
+        title: "Tree adopted",
+        detail: assetName ? `${assetName} has a new caretaker.` : "A tree has been adopted."
+      };
+    case "adoption.care_logged":
+      return {
+        title: "Care logged",
+        detail: assetName ? `Care activity was logged for ${assetName}.` : "A citizen logged care activity."
+      };
+    case "asset.updated":
+      return {
+        title: "Asset registry updated",
+        detail: action ? `A green asset was ${action}.` : "A green asset changed."
+      };
+    default:
+      return {
+        title: "Live update",
+        detail: "Dashboard data changed."
+      };
+  }
+};
+
 const StatCard = ({ label, value, detail }: { label: string; value: number; detail: string }) => (
   <article className="stat-card">
     <span>{label}</span>
@@ -204,7 +308,7 @@ export const DashboardPage = () => {
 
     for (const type of eventTypes) {
       source.addEventListener(type, (event) => {
-        setEvents((current) => [{ type, payload: event.data }, ...current].slice(0, 10));
+        setEvents((current) => [{ type, payload: event.data, receivedAt: new Date().toISOString() }, ...current].slice(0, 10));
 
         if (type !== "connected") {
           void loadSummary();
@@ -376,17 +480,34 @@ export const DashboardPage = () => {
             </article>
 
             <article className="panel details-panel">
-              <h2>Live Activity</h2>
+              <div className="live-activity-header">
+                <div>
+                  <h2>Live Activity</h2>
+                  <p className="muted-text">Latest SSE updates translated into operational events.</p>
+                </div>
+                <span>{events.length} recent</span>
+              </div>
               {events.length === 0 ? (
                 <p>No live events yet.</p>
               ) : (
                 <ul className="event-list">
-                  {events.map((event, index) => (
-                    <li key={`${event.type}-${index}`}>
-                      <strong>{event.type}</strong>
-                      <code>{event.payload}</code>
-                    </li>
-                  ))}
+                  {events.map((event, index) => {
+                    const eventDescription = describeEvent(event);
+                    const category = getEventCategory(event.type);
+
+                    return (
+                      <li className={`event-item event-${category}`} key={`${event.type}-${event.receivedAt}-${index}`}>
+                        <span className="event-dot" aria-hidden="true" />
+                        <div>
+                          <strong>{eventDescription.title}</strong>
+                          <p>{eventDescription.detail}</p>
+                          <small>
+                            {formatRelativeTime(event.receivedAt)} | {event.type}
+                          </small>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </article>
