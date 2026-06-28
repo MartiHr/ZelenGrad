@@ -89,20 +89,42 @@ const buildResponsibleZoneFilter = (employeeId: string): Prisma.MaintenanceTaskW
 
 const buildEmployeeWorklistFilter = (
   employeeId: string,
-  responsibleZoneOnly?: boolean
-): Prisma.MaintenanceTaskWhereInput => {
+  responsibleZoneOnly?: boolean,
+  showAssignedToMe?: boolean,
+  showUnassignedInZones?: boolean
+): Prisma.MaintenanceTaskWhereInput | null => {
   if (responsibleZoneOnly) {
     return buildResponsibleZoneFilter(employeeId);
   }
 
-  return {
-    OR: [
-      { assignedToId: employeeId },
-      {
-        AND: [{ assignedToId: null }, buildResponsibleZoneFilter(employeeId)]
-      }
-    ]
-  };
+  if (showAssignedToMe === undefined && showUnassignedInZones === undefined) {
+    return {
+      OR: [
+        { assignedToId: employeeId },
+        {
+          AND: [{ assignedToId: null }, buildResponsibleZoneFilter(employeeId)]
+        }
+      ]
+    };
+  }
+
+  const filters: Prisma.MaintenanceTaskWhereInput[] = [];
+
+  if (showAssignedToMe) {
+    filters.push({ assignedToId: employeeId });
+  }
+
+  if (showUnassignedInZones) {
+    filters.push({
+      AND: [{ assignedToId: null }, buildResponsibleZoneFilter(employeeId)]
+    });
+  }
+
+  if (filters.length === 0) {
+    return null;
+  }
+
+  return { OR: filters };
 };
 
 const getNextMaintenanceStatuses = (status: MaintenanceTaskStatus): MaintenanceTaskStatus[] => {
@@ -122,9 +144,13 @@ const getNextMaintenanceStatuses = (status: MaintenanceTaskStatus): MaintenanceT
 };
 
 export const listMaintenanceTasks = async (query: ListMaintenanceQuery, currentUserId: string, canViewAll: boolean) => {
-  const visibilityFilter: Prisma.MaintenanceTaskWhereInput = canViewAll
+  const visibilityFilter = canViewAll
     ? {}
-    : buildEmployeeWorklistFilter(currentUserId, query.responsibleZoneOnly);
+    : buildEmployeeWorklistFilter(currentUserId, query.responsibleZoneOnly, query.showAssignedToMe, query.showUnassignedInZones);
+
+  if (visibilityFilter === null) {
+    return [];
+  }
   const responsibilityFilter =
     canViewAll && query.responsibleEmployeeId ? buildResponsibleZoneFilter(query.responsibleEmployeeId) : {};
 

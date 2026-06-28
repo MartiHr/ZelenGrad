@@ -82,7 +82,9 @@ export const WorklistPage = () => {
   const [zoneFilter, setZoneFilter] = useState(() => searchParams.get("zoneId") ?? "");
   const [assignedToFilter, setAssignedToFilter] = useState("");
   const [responsibleEmployeeFilter, setResponsibleEmployeeFilter] = useState("");
-  const [employeeScope, setEmployeeScope] = useState("assigned");
+  const [responsibleZonesMode, setResponsibleZonesMode] = useState(false);
+  const [showAssignedToMe, setShowAssignedToMe] = useState(true);
+  const [showUnassignedInZones, setShowUnassignedInZones] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [notesByTask, setNotesByTask] = useState<Record<string, string>>({});
   const [healthByTask, setHealthByTask] = useState<Record<string, string>>({});
@@ -116,8 +118,13 @@ export const WorklistPage = () => {
         params.set("responsibleEmployeeId", responsibleEmployeeFilter);
       }
 
-      if (!canManageWorkload && employeeScope === "responsible-zones") {
+      if (!canManageWorkload && responsibleZonesMode) {
         params.set("responsibleZoneOnly", "true");
+      }
+
+      if (!canManageWorkload && !responsibleZonesMode) {
+        params.set("showAssignedToMe", String(showAssignedToMe));
+        params.set("showUnassignedInZones", String(showUnassignedInZones));
       }
 
       const query = params.toString();
@@ -131,7 +138,7 @@ export const WorklistPage = () => {
 
   useEffect(() => {
     void loadTasks();
-  }, [assignedToFilter, canManageWorkload, employeeScope, responsibleEmployeeFilter, statusFilter, token, zoneFilter]);
+  }, [assignedToFilter, canManageWorkload, responsibleZonesMode, responsibleEmployeeFilter, showAssignedToMe, showUnassignedInZones, statusFilter, token, zoneFilter]);
 
   useEffect(() => {
     apiRequest<Zone[]>("/zones")
@@ -244,13 +251,35 @@ export const WorklistPage = () => {
             </label>
           </>
         ) : (
-          <label>
-            Scope
-            <select value={employeeScope} onChange={(event) => setEmployeeScope(event.target.value)}>
-              <option value="assigned">Assigned plus unassigned zone work</option>
-              <option value="responsible-zones">All work in my responsible zones</option>
-            </select>
-          </label>
+          <>
+            <div className="toggle-chip-group">
+              <span className="toggle-chip-label">Scope</span>
+              <button
+                type="button"
+                className={`toggle-chip${showAssignedToMe && !responsibleZonesMode ? " active" : ""}`}
+                disabled={responsibleZonesMode}
+                onClick={() => setShowAssignedToMe((current) => !current)}
+              >
+                Assigned to me
+              </button>
+              <button
+                type="button"
+                className={`toggle-chip${showUnassignedInZones && !responsibleZonesMode ? " active" : ""}`}
+                disabled={responsibleZonesMode}
+                onClick={() => setShowUnassignedInZones((current) => !current)}
+              >
+                Unassigned in my zones
+              </button>
+            </div>
+            <label className="scope-mode-toggle">
+              <input
+                type="checkbox"
+                checked={responsibleZonesMode}
+                onChange={(event) => setResponsibleZonesMode(event.target.checked)}
+              />
+              All work in my responsible zones
+            </label>
+          </>
         )}
       </div>
 

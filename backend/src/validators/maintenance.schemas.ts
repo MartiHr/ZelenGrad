@@ -6,6 +6,8 @@ export const listMaintenanceQuerySchema = z.object({
   assignedToId: z.string().trim().min(1).optional(),
   responsibleEmployeeId: z.string().trim().min(1).optional(),
   responsibleZoneOnly: z.coerce.boolean().optional(),
+  showAssignedToMe: z.coerce.boolean().optional(),
+  showUnassignedInZones: z.coerce.boolean().optional(),
   assetId: z.string().trim().min(1).optional(),
   zoneId: z.string().trim().min(1).optional()
 });
