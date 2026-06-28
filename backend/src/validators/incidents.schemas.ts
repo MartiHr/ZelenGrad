@@ -30,6 +30,7 @@ export const updateIncidentSchema = z.object({
   title: z.string().trim().min(3).max(160).optional(),
   description: z.string().trim().min(10).max(2000).optional(),
   photoUrls: z.array(z.string().trim().url()).optional(),
+  assignedToId: z.string().trim().min(1).nullable().optional(),
   assetId: z.string().trim().min(1).nullable().optional(),
   zoneId: z.string().trim().min(1).nullable().optional()
 });

@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { StaffSearchSelect } from "../components/StaffSearchSelect";
+import type { StaffSelectOption } from "../components/StaffSearchSelect";
 import { validateRequiredText, type FieldErrors } from "../validation";
 
 type Incident = {
@@ -13,6 +15,7 @@ type Incident = {
   title: string;
   description: string;
   photoUrls: string[];
+  assignedTo: { id: string; name: string; email: string } | null;
   asset: { id: string; commonName: string | null; species: string; healthStatus: string } | null;
   zone: { id: string; name: string } | null;
 };
@@ -33,6 +36,7 @@ type IncidentEditForm = {
   title: string;
   description: string;
   priority: string;
+  assignedToId: string;
   assetId: string;
   zoneId: string;
   photoUrls: string;
@@ -46,6 +50,7 @@ const createIncidentEditForm = (incident: Incident): IncidentEditForm => ({
   title: incident.title,
   description: incident.description,
   priority: incident.priority,
+  assignedToId: incident.assignedTo?.id ?? "",
   assetId: incident.asset?.id ?? "",
   zoneId: incident.zone?.id ?? "",
   photoUrls: incident.photoUrls.join("\n")
@@ -58,6 +63,7 @@ export const IncidentTriageEditPage = () => {
   const [incident, setIncident] = useState<Incident | null>(null);
   const [assets, setAssets] = useState<GreenAsset[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffSelectOption[]>([]);
   const [editForm, setEditForm] = useState<IncidentEditForm | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors<IncidentEditField>>({});
@@ -77,13 +83,15 @@ export const IncidentTriageEditPage = () => {
     Promise.all([
       apiRequest<Incident>(`/incidents/${incidentId}`, { token }),
       apiRequest<GreenAsset[]>("/assets"),
-      apiRequest<Zone[]>("/zones")
+      apiRequest<Zone[]>("/zones"),
+      apiRequest<StaffSelectOption[]>("/users/staff", { token })
     ])
-      .then(([incidentResponse, assetsResponse, zonesResponse]) => {
+      .then(([incidentResponse, assetsResponse, zonesResponse, staffResponse]) => {
         setIncident(incidentResponse);
         setEditForm(createIncidentEditForm(incidentResponse));
         setAssets(assetsResponse);
         setZones(zonesResponse);
+        setStaffUsers(staffResponse);
       })
       .catch((caughtError) => {
         setError(caughtError instanceof ApiError ? caughtError.message : "Could not load triage editor.");
@@ -149,6 +157,7 @@ export const IncidentTriageEditPage = () => {
           title: editForm.title.trim(),
           description: editForm.description.trim(),
           priority: editForm.priority,
+          assignedToId: editForm.assignedToId || null,
           assetId: editForm.assetId || null,
           zoneId: editForm.zoneId || null,
           photoUrls
@@ -232,6 +241,15 @@ export const IncidentTriageEditPage = () => {
                   </option>
                 ))}
               </select>
+            </label>
+            <label>
+              Assigned to
+              <StaffSearchSelect
+                value={editForm.assignedToId}
+                onChange={(assignedToId) => updateEditForm({ assignedToId })}
+                staffUsers={staffUsers}
+                placeholder="Unassigned"
+              />
             </label>
             <label>
               Title

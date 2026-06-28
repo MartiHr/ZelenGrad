@@ -23,6 +23,7 @@ type Incident = {
   zone: { id: string; name: string } | null;
   reporter: { id: string; name: string; email: string } | null;
   verifiedBy: { id: string; name: string; email: string } | null;
+  assignedTo: { id: string; name: string; email: string } | null;
 };
 
 const formatDateTime = (value: string | null) => {
@@ -204,6 +205,10 @@ export const IncidentDetailsPage = () => {
             <div>
               <dt>Verified by</dt>
               <dd>{incident.verifiedBy ? `${incident.verifiedBy.name} (${incident.verifiedBy.email})` : "Not verified"}</dd>
+            </div>
+            <div>
+              <dt>Assigned to</dt>
+              <dd>{incident.assignedTo ? `${incident.assignedTo.name} (${incident.assignedTo.email})` : "Unassigned"}</dd>
             </div>
             <div>
               <dt>Coordinates</dt>
