@@ -258,99 +258,99 @@ export const MyForestPage = () => {
 
           return (
             <article className="asset-card forest-card" key={adoption.id}>
-            {typeof adoption.asset.metadata?.photoUrl === "string" ? (
-              <img
-                className="asset-card-photo"
-                src={adoption.asset.metadata.photoUrl}
-                alt={adoption.asset.commonName ?? adoption.asset.species}
-              />
-            ) : null}
-            <div>
-              <p className="eyebrow">{adoption.status}</p>
-              <h2>{adoption.asset.commonName ?? adoption.asset.species}</h2>
-            </div>
-            <p>{adoption.asset.description ?? "No description has been added for this tree yet."}</p>
-            <dl>
-              <div>
-                <dt>Species</dt>
-                <dd>{adoption.asset.species}</dd>
+              <div className="forest-card-main">
+                {typeof adoption.asset.metadata?.photoUrl === "string" ? (
+                  <img
+                    className="asset-card-photo"
+                    src={adoption.asset.metadata.photoUrl}
+                    alt={adoption.asset.commonName ?? adoption.asset.species}
+                  />
+                ) : null}
+                <div className="forest-card-summary">
+                  <p className="eyebrow">{adoption.status}</p>
+                  <h2>{adoption.asset.commonName ?? adoption.asset.species}</h2>
+                  <p className="forest-card-description">
+                    {adoption.asset.description ?? "No description has been added for this tree yet."}
+                  </p>
+                </div>
               </div>
-              <div>
-                <dt>Health</dt>
-                <dd>{adoption.asset.healthStatus}</dd>
+              <dl>
+                <div>
+                  <dt>Health</dt>
+                  <dd>{adoption.asset.healthStatus}</dd>
+                </div>
+                <div>
+                  <dt>Zone</dt>
+                  <dd>{adoption.asset.zone?.name ?? "Unassigned"}</dd>
+                </div>
+                <div>
+                  <dt>Adopted</dt>
+                  <dd>{formatDate(adoption.startedAt)}</dd>
+                </div>
+                <div>
+                  <dt>Logs</dt>
+                  <dd>{adoption._count.careLogs}</dd>
+                </div>
+              </dl>
+              <div className="button-row">
+                <Link to={`/assets/${adoption.asset.id}`}>Open details</Link>
               </div>
-              <div>
-                <dt>Zone</dt>
-                <dd>{adoption.asset.zone?.name ?? "Unassigned"}</dd>
-              </div>
-              <div>
-                <dt>Adopted</dt>
-                <dd>{formatDate(adoption.startedAt)}</dd>
-              </div>
-              <div>
-                <dt>Care logs</dt>
-                <dd>{adoption._count.careLogs}</dd>
-              </div>
-            </dl>
-            <div className="button-row">
-              <Link to={`/assets/${adoption.asset.id}`}>Open details</Link>
-            </div>
-            <form className="inline-form care-form" onSubmit={(event) => void submitCareLog(event, adoption.id)}>
-              <label>
-                Care notes
-                <textarea
-                  value={form.notes}
-                  onChange={(event) => updateCareForm(adoption.id, { notes: event.target.value })}
-                  maxLength={1000}
-                  placeholder="Watered, checked soil, removed litter..."
-                />
-              </label>
-              <label>
-                Care photo
-                <input
-                  accept="image/gif,image/jpeg,image/png,image/webp"
-                  key={form.fileInputKey}
-                  onChange={(event) =>
-                    updateCareForm(adoption.id, {
-                      photoFile: event.target.files?.[0] ?? null,
-                      error: null,
-                      success: null
-                    })
-                  }
-                  type="file"
-                />
-              </label>
-              {form.photoFile ? <p className="muted-text">Selected: {form.photoFile.name}</p> : null}
-              {form.error ? <p className="form-error">{form.error}</p> : null}
-              {form.success ? <p className="form-success">{form.success}</p> : null}
-              <button type="submit" disabled={form.isSubmitting}>
-                {form.isSubmitting ? "Saving..." : "Log Care"}
-              </button>
-            </form>
-            <section className="care-history">
-              <h3>Care History</h3>
-              {adoption.careLogs.length === 0 ? <p>No care logs have been submitted yet.</p> : null}
-              {adoption.careLogs.length ? (
-                <ul className="timeline">
-                  {adoption.careLogs.map((careLog) => (
-                    <li key={careLog.id}>
-                      <strong>{formatDate(careLog.loggedAt)}</strong>
-                      <p>{careLog.notes ?? "No notes were added."}</p>
-                      {careLog.photoUrls.length ? (
-                        <div className="photo-gallery">
-                          {careLog.photoUrls.map((photoUrl) => (
-                            <a className="photo-thumb" href={photoUrl} key={photoUrl} rel="noreferrer" target="_blank">
-                              <img src={photoUrl} alt="Care log evidence" />
-                            </a>
-                          ))}
-                        </div>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </section>
-          </article>
+              <form className="inline-form care-form" onSubmit={(event) => void submitCareLog(event, adoption.id)}>
+                <label>
+                  Care notes
+                  <textarea
+                    value={form.notes}
+                    onChange={(event) => updateCareForm(adoption.id, { notes: event.target.value })}
+                    maxLength={1000}
+                    placeholder="Watered, checked soil, removed litter..."
+                  />
+                </label>
+                <label>
+                  Care photo
+                  <input
+                    accept="image/gif,image/jpeg,image/png,image/webp"
+                    key={form.fileInputKey}
+                    onChange={(event) =>
+                      updateCareForm(adoption.id, {
+                        photoFile: event.target.files?.[0] ?? null,
+                        error: null,
+                        success: null
+                      })
+                    }
+                    type="file"
+                  />
+                </label>
+                {form.photoFile ? <p className="muted-text">Selected: {form.photoFile.name}</p> : null}
+                {form.error ? <p className="form-error">{form.error}</p> : null}
+                {form.success ? <p className="form-success">{form.success}</p> : null}
+                <button type="submit" disabled={form.isSubmitting}>
+                  {form.isSubmitting ? "Saving..." : "Log Care"}
+                </button>
+              </form>
+              <details className="care-history">
+                <summary>Care History ({adoption._count.careLogs})</summary>
+                {adoption.careLogs.length === 0 ? <p>No care logs have been submitted yet.</p> : null}
+                {adoption.careLogs.length ? (
+                  <ul className="timeline compact-care-timeline">
+                    {adoption.careLogs.map((careLog) => (
+                      <li key={careLog.id}>
+                        <strong>{formatDate(careLog.loggedAt)}</strong>
+                        <p>{careLog.notes ?? "No notes were added."}</p>
+                        {careLog.photoUrls.length ? (
+                          <div className="photo-gallery">
+                            {careLog.photoUrls.map((photoUrl) => (
+                              <a className="photo-thumb" href={photoUrl} key={photoUrl} rel="noreferrer" target="_blank">
+                                <img src={photoUrl} alt="Care log evidence" />
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </details>
+            </article>
           );
         })}
       </div>

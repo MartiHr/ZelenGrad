@@ -1085,16 +1085,70 @@ code {
 
 .forest-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
-}
-
-.forest-card {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 0.75rem;
 }
 
+.forest-card {
+  gap: 0.65rem;
+  padding: 0.75rem;
+}
+
+.forest-card-main {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  align-items: start;
+  gap: 0.7rem;
+}
+
 .forest-card .asset-card-photo {
-  aspect-ratio: 16 / 9;
+  width: 82px;
+  aspect-ratio: 1;
+  border-radius: 8px;
+}
+
+.forest-card-summary {
+  min-width: 0;
+}
+
+.forest-card h2 {
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.forest-card-description {
+  display: -webkit-box;
+  margin: 0.25rem 0 0;
+  overflow: hidden;
+  color: #60756c;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.forest-card dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 0.65rem;
+}
+
+.forest-card dt {
+  font-size: 0.7rem;
+}
+
+.forest-card dd {
+  font-size: 0.9rem;
+}
+
+.forest-card .button-row {
+  gap: 0.5rem;
+}
+
+.forest-card .button-row a,
+.forest-card button {
+  min-height: 2.25rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.86rem;
 }
 
 .compact-timeline {
@@ -1574,21 +1628,37 @@ code {
 
 .care-form {
   border-top: 1px solid #edf2ef;
-  padding-top: 0.9rem;
+  padding-top: 0.7rem;
+}
+
+.care-form textarea {
+  min-height: 4.5rem;
 }
 
 .care-history {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.65rem;
   border-top: 1px solid #edf2ef;
-  padding-top: 0.9rem;
+  padding-top: 0.7rem;
 }
 
-.care-history h3 {
-  margin: 0;
+.care-history summary {
+  width: fit-content;
   color: #173f2d;
-  font-size: 1rem;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 800;
   letter-spacing: 0;
+}
+
+.care-history summary::marker {
+  color: #2e7d52;
+}
+
+.compact-care-timeline {
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 0.25rem;
 }
 
 .photo-links {
