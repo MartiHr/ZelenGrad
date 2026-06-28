@@ -13,13 +13,6 @@ const incidentReportedPoints = 2;
 const incidentVerifiedPoints = 8;
 
 const incidentInclude = {
-  assignedTo: {
-    select: {
-      id: true,
-      name: true,
-      email: true
-    }
-  },
   reporter: {
     select: {
       id: true,

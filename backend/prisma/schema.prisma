@@ -109,7 +109,6 @@ model User {
   createdTasks      MaintenanceTask[]   @relation("TaskCreatedBy")
   assignedTasks     MaintenanceTask[]   @relation("TaskAssignedTo")
   completedTasks    MaintenanceTask[]   @relation("TaskCompletedBy")
-  assignedIncidents IncidentReport[]    @relation("IncidentAssignedTo")
   maintenanceLogs   MaintenanceLog[]    @relation("MaintenanceLoggedBy")
   incidentReports   IncidentReport[]    @relation("IncidentReportedBy")
   verifiedIncidents IncidentReport[]    @relation("IncidentVerifiedBy")
@@ -250,7 +249,6 @@ model IncidentReport {
   longitude    Decimal?       @db.Decimal(9, 6)
   reporterId   String?
   verifiedById String?
-  assignedToId String?
   assetId      String?
   zoneId       String?
   verifiedAt   DateTime?
@@ -260,7 +258,6 @@ model IncidentReport {
 
   reporter     User?          @relation("IncidentReportedBy", fields: [reporterId], references: [id], onDelete: SetNull)
   verifiedBy   User?          @relation("IncidentVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
-  assignedTo   User?          @relation("IncidentAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
   asset        GreenAsset?    @relation(fields: [assetId], references: [id], onDelete: SetNull)
   zone         Zone?          @relation(fields: [zoneId], references: [id], onDelete: SetNull)
 
