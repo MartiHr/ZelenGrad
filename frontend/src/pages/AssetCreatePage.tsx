@@ -49,6 +49,10 @@ const defaultCenter: [number, number] = [42.6977, 23.3219];
 const maxPhotoBytes = 5 * 1024 * 1024;
 
 const getDraftCoordinates = (latitude: string, longitude: string): [number, number] | null => {
+  if (!latitude.trim() || !longitude.trim()) {
+    return null;
+  }
+
   const parsedLatitude = Number(latitude);
   const parsedLongitude = Number(longitude);
 
