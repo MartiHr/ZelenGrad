@@ -6,7 +6,7 @@ import "leaflet/dist/leaflet.css";
 
 import { ApiError, apiRequest, uploadAssetImage } from "../api";
 import { useAuth } from "../auth/AuthContext";
-import { getZonePolygons } from "../map/zoneBoundaries";
+import { getZonePolygons, isPointInPolygon } from "../map/zoneBoundaries";
 import {
   validateCoordinate,
   validateOptionalImageFile,
@@ -300,6 +300,12 @@ export const AssetCreatePage = () => {
             onPickCoordinates={(latitude, longitude) => {
               setAssetLatitude(latitude);
               setAssetLongitude(longitude);
+
+              const point: [number, number] = [Number(latitude), Number(longitude)];
+              const matchedZone = zones.find((zone) =>
+                getZonePolygons(zone.boundary).some((positions) => isPointInPolygon(point, positions))
+              );
+              setAssetZoneId(matchedZone?.id ?? "");
             }}
           />
           <MapBounds draftCoordinates={draftCoordinates} zones={zones} />
@@ -438,6 +444,9 @@ export const AssetCreatePage = () => {
                   </option>
                 ))}
               </select>
+              {assetZoneId ? (
+                <span className="selected-zone-badge">{zones.find((z) => z.id === assetZoneId)?.name}</span>
+              ) : null}
             </label>
           </div>
           {locationError ? <p className="form-error">{locationError}</p> : null}

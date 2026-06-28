@@ -930,6 +930,18 @@ code {
   font-weight: 800;
 }
 
+.selected-zone-badge {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f5132;
+  background: #d1e7dd;
+  border: 1px solid #badbcc;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+}
+
 .asset-card {
   display: grid;
   gap: 1rem;
