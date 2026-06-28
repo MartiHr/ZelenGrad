@@ -24,6 +24,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { UsersPage } from "./pages/UsersPage";
 import { WorklistPage } from "./pages/WorklistPage";
+import { ZoneCreatePage } from "./pages/ZoneCreatePage";
 import { ZonesPage } from "./pages/ZonesPage";
 
 export const router = createBrowserRouter([
@@ -88,6 +89,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
             <ZonesPage />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "zones/new",
+        element: (
+          <ProtectedRoute roles={["MANAGER", "ADMIN"]}>
+            <ZoneCreatePage />
           </ProtectedRoute>
         )
       },

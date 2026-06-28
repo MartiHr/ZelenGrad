@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import L from "leaflet";
 import { Link } from "react-router";
 import { CircleMarker, MapContainer, Polygon, Polyline, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
@@ -7,8 +7,7 @@ import "leaflet/dist/leaflet.css";
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { StaffSearchSelect } from "../components/StaffSearchSelect";
-import { createGeoJsonPolygon, getZonePolygons, type LatLngPair } from "../map/zoneBoundaries";
-import { validateRequiredText, type FieldErrors } from "../validation";
+import { getZonePolygons, type LatLngPair } from "../map/zoneBoundaries";
 
 type Zone = {
   id: string;
@@ -40,8 +39,6 @@ type StaffUser = {
   email: string;
   role: string;
 };
-
-type ZoneCreateField = "name" | "boundary";
 
 type BoundaryMapProps = {
   zones: Zone[];
@@ -138,19 +135,11 @@ export const ZonesPage = () => {
   const { hasRole, token } = useAuth();
   const [zones, setZones] = useState<Zone[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [boundaryJson, setBoundaryJson] = useState("");
-  const [boundaryPoints, setBoundaryPoints] = useState<LatLngPair[]>([]);
   const [assignmentByZone, setAssignmentByZone] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [createFieldErrors, setCreateFieldErrors] = useState<FieldErrors<ZoneCreateField>>({});
-  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
   const [updatingAssignment, setUpdatingAssignment] = useState<string | null>(null);
   const canManageZones = hasRole("MANAGER", "ADMIN");
 
@@ -187,89 +176,6 @@ export const ZonesPage = () => {
         setError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
       });
   }, [canManageZones, token]);
-
-  const createZone = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!token) {
-      setCreateError("Please log in before creating a zone.");
-      return;
-    }
-
-    const nextFieldErrors: FieldErrors<ZoneCreateField> = {};
-    const nameError = validateRequiredText(name, "Name", 2);
-    let boundary: unknown;
-
-    if (nameError) {
-      nextFieldErrors.name = nameError;
-    }
-
-    if (boundaryJson.trim()) {
-      try {
-        boundary = JSON.parse(boundaryJson);
-      } catch {
-        nextFieldErrors.boundary = "Boundary must be valid GeoJSON.";
-      }
-    } else if (boundaryPoints.length > 0 && boundaryPoints.length < 3) {
-      nextFieldErrors.boundary = "Click at least three map points to create a boundary.";
-    }
-
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setCreateFieldErrors(nextFieldErrors);
-      setCreateError("Fix the highlighted zone fields before creating.");
-      setCreateSuccess(null);
-      return;
-    }
-
-    setIsCreating(true);
-    setCreateError(null);
-    setCreateFieldErrors({});
-    setCreateSuccess(null);
-
-    try {
-      const zone = await apiRequest<Zone>("/zones", {
-        method: "POST",
-        token,
-        body: {
-          name,
-          description: description.trim() || undefined,
-          boundary
-        }
-      });
-
-      setZones((current) => [...current, zone].sort((left, right) => left.name.localeCompare(right.name)));
-      setName("");
-      setDescription("");
-      setBoundaryJson("");
-      setBoundaryPoints([]);
-      setCreateSuccess(`Created ${zone.name}.`);
-    } catch (caughtError) {
-      setCreateError(caughtError instanceof SyntaxError ? "Boundary must be valid JSON." : caughtError instanceof ApiError ? caughtError.message : "Could not create zone.");
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const addBoundaryPoint = (point: LatLngPair) => {
-    setBoundaryPoints((current) => {
-      const next = [...current, point];
-      setBoundaryJson(next.length >= 3 ? JSON.stringify(createGeoJsonPolygon(next), null, 2) : "");
-      return next;
-    });
-  };
-
-  const undoBoundaryPoint = () => {
-    setBoundaryPoints((current) => {
-      const next = current.slice(0, -1);
-      setBoundaryJson(next.length >= 3 ? JSON.stringify(createGeoJsonPolygon(next), null, 2) : "");
-      return next;
-    });
-  };
-
-  const clearBoundaryPoints = () => {
-    setBoundaryPoints([]);
-    setBoundaryJson("");
-  };
 
   const replaceZone = (zone: Zone) => {
     setZones((current) => current.map((currentZone) => (currentZone.id === zone.id ? zone : currentZone)));
@@ -354,71 +260,15 @@ export const ZonesPage = () => {
 
       {canManageZones ? (
         <article className="panel details-panel">
-          <h2>Create Zone</h2>
-        <form className="inline-form" onSubmit={(event) => void createZone(event)} noValidate>
-          <div className="form-grid">
-            <label>
-              Name
-              <input
-                aria-invalid={Boolean(createFieldErrors.name)}
-                value={name}
-                onChange={(event) => {
-                  setName(event.target.value);
-                  setCreateFieldErrors((current) => ({ ...current, name: undefined }));
-                }}
-                maxLength={120}
-                minLength={2}
-                required
-                placeholder="University District"
-              />
-              {createFieldErrors.name ? <span className="field-error">{createFieldErrors.name}</span> : null}
-            </label>
+          <div className="panel-title-row">
+            <h2>Create Zone</h2>
+            <Link className="secondary-link" to="/zones/new">
+              Create Zone
+            </Link>
           </div>
-          <label>
-            Description
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              maxLength={1000}
-              placeholder="Short operational note for this zone."
-            />
-          </label>
-          <label>
-            Boundary JSON
-            <textarea
-              aria-invalid={Boolean(createFieldErrors.boundary)}
-              value={boundaryJson}
-              onChange={(event) => {
-                setBoundaryJson(event.target.value);
-                setCreateFieldErrors((current) => ({ ...current, boundary: undefined }));
-              }}
-              placeholder='{"type":"Polygon","coordinates":[[[23.31,42.70],[23.33,42.70],[23.33,42.69],[23.31,42.69],[23.31,42.70]]]}'
-            />
-            {createFieldErrors.boundary ? <span className="field-error">{createFieldErrors.boundary}</span> : null}
-          </label>
-          <div className="boundary-editor">
-            <div className="boundary-editor-header">
-              <span>Boundary Map</span>
-              <div className="button-row">
-                <button type="button" className="muted-button" disabled={boundaryPoints.length === 0} onClick={undoBoundaryPoint}>
-                  Undo Point
-                </button>
-                <button type="button" className="muted-button" disabled={boundaryPoints.length === 0} onClick={clearBoundaryPoints}>
-                  Clear
-                </button>
-              </div>
-            </div>
-            <BoundaryMap zones={zones} draftPoints={boundaryPoints} onAddPoint={addBoundaryPoint} />
-            <p className="muted-text">
-              Click the map to add at least three points. The boundary JSON updates automatically.
-            </p>
-          </div>
-          {createError ? <p className="form-error">{createError}</p> : null}
-          {createSuccess ? <p className="form-success">{createSuccess}</p> : null}
-          <button type="submit" disabled={isCreating}>
-            {isCreating ? "Creating..." : "Create Zone"}
-          </button>
-        </form>
+          <p className="muted-text">
+            Draw a boundary and enter zone metadata in a focused creation view.
+          </p>
         </article>
       ) : null}
 
