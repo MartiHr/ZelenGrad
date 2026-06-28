@@ -223,12 +223,12 @@ export const IncidentDetailsPage = () => {
           <div className="photo-links">
             {incident.photoUrls.map((photoUrl) => (
               <a href={photoUrl} key={photoUrl} rel="noreferrer" target="_blank">
-                Photo
+                <img src={photoUrl} alt="Incident photo evidence" />
               </a>
             ))}
           </div>
         ) : (
-          <p>No photo evidence was submitted.</p>
+          <p className="muted-text">No photo evidence was submitted.</p>
         )}
       </article>
     </section>
