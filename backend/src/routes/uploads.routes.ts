@@ -19,7 +19,7 @@ const allowedImageTypes: Record<string, string> = {
 export const uploadsRouter = Router();
 
 const createImageUploadHandler =
-  (directoryName: "assets" | "care-logs") =>
+  (directoryName: "assets" | "care-logs" | "incidents") =>
   async (request: Request, response: Response, next: NextFunction) => {
     try {
       const contentType = request.header("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "";
@@ -66,4 +66,11 @@ uploadsRouter.post(
   requireRole(UserRole.CITIZEN),
   express.raw({ type: Object.keys(allowedImageTypes), limit: `${maxUploadBytes}b` }),
   createImageUploadHandler("care-logs")
+);
+
+uploadsRouter.post(
+  "/incidents",
+  requireAuth,
+  express.raw({ type: Object.keys(allowedImageTypes), limit: `${maxUploadBytes}b` }),
+  createImageUploadHandler("incidents")
 );

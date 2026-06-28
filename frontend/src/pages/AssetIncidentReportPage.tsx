@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
-import { ApiError, apiRequest } from "../api";
+import { ApiError, apiRequest, uploadIncidentImage } from "../api";
 import { useAuth } from "../auth/AuthContext";
-import { validateRequiredText, type FieldErrors } from "../validation";
+import { validateOptionalImageFile, validateRequiredText, type FieldErrors } from "../validation";
 
 type Asset = {
   id: string;
@@ -22,7 +22,7 @@ type CreatedIncident = {
   status: string;
 };
 
-type ReportField = "title" | "description";
+type ReportField = "title" | "description" | "photo";
 
 const incidentTypes = ["DRY_TREE", "VANDALISM", "DISEASE", "FALLEN_BRANCH", "WASTE", "OTHER"];
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
@@ -36,6 +36,7 @@ export const AssetIncidentReportPage = () => {
   const [reportPriority, setReportPriority] = useState("MEDIUM");
   const [reportTitle, setReportTitle] = useState("");
   const [reportDescription, setReportDescription] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors<ReportField>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -70,6 +71,7 @@ export const AssetIncidentReportPage = () => {
     const nextFieldErrors: FieldErrors<ReportField> = {};
     const titleError = validateRequiredText(reportTitle, "Title", 3);
     const descriptionError = validateRequiredText(reportDescription, "Description", 10);
+    const photoError = validateOptionalImageFile(photoFile, "Photo evidence");
 
     if (titleError) {
       nextFieldErrors.title = titleError;
@@ -79,9 +81,13 @@ export const AssetIncidentReportPage = () => {
       nextFieldErrors.description = descriptionError;
     }
 
+    if (photoError) {
+      nextFieldErrors.photo = photoError;
+    }
+
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
-      setError("Fix the highlighted incident fields before submitting.");
+      setError("Fix the highlighted fields before submitting.");
       return;
     }
 
@@ -90,6 +96,8 @@ export const AssetIncidentReportPage = () => {
     setFieldErrors({});
 
     try {
+      const photoUrl = photoFile ? await uploadIncidentImage(photoFile, token) : null;
+
       const incident = await apiRequest<CreatedIncident>("/incidents", {
         method: "POST",
         token,
@@ -101,7 +109,8 @@ export const AssetIncidentReportPage = () => {
           assetId: asset.id,
           zoneId: asset.zone?.id,
           latitude: asset.latitude,
-          longitude: asset.longitude
+          longitude: asset.longitude,
+          photoUrls: photoUrl ? [photoUrl] : undefined
         }
       });
 
@@ -199,6 +208,32 @@ export const AssetIncidentReportPage = () => {
             />
             {fieldErrors.description ? <span className="field-error">{fieldErrors.description}</span> : null}
           </label>
+          <div className="photo-registration-grid">
+            <label>
+              Photo evidence
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                aria-invalid={Boolean(fieldErrors.photo)}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setPhotoFile(file);
+                  if (fieldErrors.photo) {
+                    setFieldErrors((current) => ({ ...current, photo: undefined }));
+                  }
+                }}
+              />
+              {fieldErrors.photo ? <span className="field-error">{fieldErrors.photo}</span> : null}
+            </label>
+            {photoFile ? (
+              <figure className="asset-photo-preview">
+                <img src={URL.createObjectURL(photoFile)} alt="Incident photo preview" />
+                <figcaption>
+                  {photoFile.name} ({(photoFile.size / 1024).toFixed(1)} KB)
+                </figcaption>
+              </figure>
+            ) : null}
+          </div>
 
           {error ? <p className="form-error">{error}</p> : null}
 
