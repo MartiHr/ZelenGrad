@@ -17,6 +17,7 @@ const adoptionInclude = {
       longitude: true,
       healthStatus: true,
       lifecycleStatus: true,
+      metadata: true,
       zone: {
         select: {
           id: true,

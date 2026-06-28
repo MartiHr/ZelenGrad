@@ -20,6 +20,7 @@ type Adoption = {
     longitude: string;
     healthStatus: string;
     lifecycleStatus: string;
+    metadata: { photoUrl?: string } | null;
     zone: { id: string; name: string } | null;
   };
   _count: {
@@ -33,6 +34,14 @@ type CareLog = {
   notes: string | null;
   photoUrls: string[];
   loggedAt: string;
+};
+
+type RewardTransaction = {
+  id: string;
+  points: number;
+  reason: string;
+  description: string | null;
+  createdAt: string;
 };
 
 type CareFormState = {
@@ -64,9 +73,12 @@ const createInitialCareForm = (): CareFormState => ({
 export const MyForestPage = () => {
   const { refreshUser, token, user } = useAuth();
   const [adoptions, setAdoptions] = useState<Adoption[]>([]);
+  const [rewards, setRewards] = useState<RewardTransaction[]>([]);
   const [careForms, setCareForms] = useState<Record<string, CareFormState>>({});
   const [error, setError] = useState<string | null>(null);
+  const [rewardError, setRewardError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingRewards, setIsLoadingRewards] = useState(true);
 
   const loadAdoptions = async () => {
     if (!token) {
@@ -94,6 +106,22 @@ export const MyForestPage = () => {
 
   useEffect(() => {
     void loadAdoptions();
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    setIsLoadingRewards(true);
+    setRewardError(null);
+
+    apiRequest<RewardTransaction[]>("/rewards/me", { token })
+      .then(setRewards)
+      .catch((caughtError) => {
+        setRewardError(caughtError instanceof ApiError ? caughtError.message : "Could not load reward history.");
+      })
+      .finally(() => setIsLoadingRewards(false));
   }, [token]);
 
   const updateCareForm = (adoptionId: string, patch: Partial<CareFormState>) => {
@@ -167,7 +195,50 @@ export const MyForestPage = () => {
 
       {error ? <p className="form-error">{error}</p> : null}
 
-      <div className="asset-grid">
+      <section className="forest-overview-grid">
+        <article className="panel details-panel">
+          <h2>Reward History</h2>
+          {rewardError ? <p className="form-error">{rewardError}</p> : null}
+          {isLoadingRewards ? <p>Loading reward history...</p> : null}
+          {!isLoadingRewards && rewards.length === 0 ? <p>No reward transactions have been recorded yet.</p> : null}
+          {rewards.length ? (
+            <ul className="timeline compact-timeline">
+              {rewards.slice(0, 8).map((reward) => (
+                <li key={reward.id}>
+                  <strong>
+                    {reward.points > 0 ? "+" : ""}
+                    {reward.points} points
+                  </strong>
+                  <span>
+                    {reward.reason} | {formatDate(reward.createdAt)}
+                  </span>
+                  <p>{reward.description ?? "No description was added."}</p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </article>
+
+        <article className="panel details-panel">
+          <h2>Forest Snapshot</h2>
+          <dl className="asset-quick-stats">
+            <div>
+              <dt>Adoptions</dt>
+              <dd>{adoptions.length}</dd>
+            </div>
+            <div>
+              <dt>Care logs</dt>
+              <dd>{adoptions.reduce((total, adoption) => total + adoption._count.careLogs, 0)}</dd>
+            </div>
+            <div>
+              <dt>Green points</dt>
+              <dd>{user?.greenPoints ?? 0}</dd>
+            </div>
+          </dl>
+        </article>
+      </section>
+
+      <div className="forest-card-grid">
         {isLoading ? <p>Loading your adopted trees...</p> : null}
         {!isLoading && adoptions.length === 0 ? (
           <article className="panel details-panel">
@@ -183,7 +254,14 @@ export const MyForestPage = () => {
           const form = careForms[adoption.id] ?? createInitialCareForm();
 
           return (
-            <article className="asset-card" key={adoption.id}>
+            <article className="asset-card forest-card" key={adoption.id}>
+            {typeof adoption.asset.metadata?.photoUrl === "string" ? (
+              <img
+                className="asset-card-photo"
+                src={adoption.asset.metadata.photoUrl}
+                alt={adoption.asset.commonName ?? adoption.asset.species}
+              />
+            ) : null}
             <div>
               <p className="eyebrow">{adoption.status}</p>
               <h2>{adoption.asset.commonName ?? adoption.asset.species}</h2>
@@ -249,10 +327,10 @@ export const MyForestPage = () => {
                       <strong>{formatDate(careLog.loggedAt)}</strong>
                       <p>{careLog.notes ?? "No notes were added."}</p>
                       {careLog.photoUrls.length ? (
-                        <div className="photo-links">
+                        <div className="photo-gallery">
                           {careLog.photoUrls.map((photoUrl) => (
-                            <a href={photoUrl} key={photoUrl} rel="noreferrer" target="_blank">
-                              Photo
+                            <a className="photo-thumb" href={photoUrl} key={photoUrl} rel="noreferrer" target="_blank">
+                              <img src={photoUrl} alt="Care log evidence" />
                             </a>
                           ))}
                         </div>

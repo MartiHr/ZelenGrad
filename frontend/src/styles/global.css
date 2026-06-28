@@ -1077,6 +1077,32 @@ code {
   padding-top: 1rem;
 }
 
+.forest-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr);
+  gap: 1rem;
+}
+
+.forest-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.forest-card {
+  gap: 0.75rem;
+}
+
+.forest-card .asset-card-photo {
+  aspect-ratio: 16 / 9;
+}
+
+.compact-timeline {
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
 .assignment-panel {
   display: grid;
   gap: 0.75rem;
@@ -1581,6 +1607,28 @@ code {
   font-size: 0.82rem;
 }
 
+.photo-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.photo-thumb {
+  display: block;
+  width: 92px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid #d9e2dc;
+  background: #edf2ef;
+}
+
+.photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .asset-form {
   max-width: none;
 }
@@ -1734,7 +1782,8 @@ code {
 @media (max-width: 720px) {
   .asset-detail-hero,
   .details-header,
-  .details-grid {
+  .details-grid,
+  .forest-overview-grid {
     grid-template-columns: 1fr;
   }
 
