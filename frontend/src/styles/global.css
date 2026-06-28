@@ -688,23 +688,32 @@ code {
 
 .scope-dropdown {
   position: relative;
-  align-self: end;
 }
 
 .scope-dropdown-trigger {
-  border: 1px solid #b9d7c7;
+  width: 100%;
+  border: 1px solid #c9d6cf;
   border-radius: 6px;
-  padding: 0.4rem 0.7rem;
+  padding: 0.7rem 0.8rem;
+  color: #20312a;
   background: #ffffff;
-  color: #2d5a48;
-  cursor: pointer;
   font: inherit;
-  font-size: 0.9rem;
-  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
 }
 
 .scope-dropdown-trigger:hover {
-  background: #f0f7f3;
+  border-color: #96ae9f;
+}
+
+.scope-dropdown-trigger:focus-visible {
+  border-color: #12633f;
+  box-shadow: 0 0 0 4px rgba(18, 99, 63, 0.12);
+  outline: none;
 }
 
 .scope-dropdown-panel {
@@ -719,7 +728,8 @@ code {
   border-radius: 8px;
   background: #ffffff;
   padding: 0.4rem;
-  min-width: max-content;
+  min-width: 100%;
+  width: max-content;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 

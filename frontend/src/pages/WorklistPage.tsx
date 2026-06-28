@@ -274,57 +274,60 @@ export const WorklistPage = () => {
           </>
         ) : (
           <>
-            <div className="scope-dropdown" ref={scopeRef}>
-              <button type="button" className="scope-dropdown-trigger" onClick={() => setIsScopeOpen((c) => !c)}>
-                Scope: {getScopeLabel()}
-              </button>
-              {isScopeOpen ? (
-                <div className="scope-dropdown-panel">
-                  <label className="scope-option">
-                    <input
-                      type="checkbox"
-                      checked={showAssignedToMe}
-                      disabled={responsibleZonesMode}
-                      onChange={(event) => {
-                        setShowAssignedToMe(event.target.checked);
-                        if (event.target.checked) {
-                          setResponsibleZonesMode(false);
-                        }
-                      }}
-                    />
-                    Assigned to me
-                  </label>
-                  <label className="scope-option">
-                    <input
-                      type="checkbox"
-                      checked={showUnassignedInZones}
-                      disabled={responsibleZonesMode}
-                      onChange={(event) => {
-                        setShowUnassignedInZones(event.target.checked);
-                        if (event.target.checked) {
-                          setResponsibleZonesMode(false);
-                        }
-                      }}
-                    />
-                    Unassigned in my zones
-                  </label>
-                  <label className="scope-option">
-                    <input
-                      type="checkbox"
-                      checked={responsibleZonesMode}
-                      onChange={(event) => {
-                        setResponsibleZonesMode(event.target.checked);
-                        if (event.target.checked) {
-                          setShowAssignedToMe(false);
-                          setShowUnassignedInZones(false);
-                        }
-                      }}
-                    />
-                    All work in my responsible zones
-                  </label>
-                </div>
-              ) : null}
-            </div>
+            <label>
+              Scope
+              <div className="scope-dropdown" ref={scopeRef}>
+                <button type="button" className="scope-dropdown-trigger" onClick={() => setIsScopeOpen((c) => !c)}>
+                  {getScopeLabel()}
+                </button>
+                {isScopeOpen ? (
+                  <div className="scope-dropdown-panel">
+                    <label className="scope-option">
+                      <input
+                        type="checkbox"
+                        checked={showAssignedToMe}
+                        disabled={responsibleZonesMode}
+                        onChange={(event) => {
+                          setShowAssignedToMe(event.target.checked);
+                          if (event.target.checked) {
+                            setResponsibleZonesMode(false);
+                          }
+                        }}
+                      />
+                      Assigned to me
+                    </label>
+                    <label className="scope-option">
+                      <input
+                        type="checkbox"
+                        checked={showUnassignedInZones}
+                        disabled={responsibleZonesMode}
+                        onChange={(event) => {
+                          setShowUnassignedInZones(event.target.checked);
+                          if (event.target.checked) {
+                            setResponsibleZonesMode(false);
+                          }
+                        }}
+                      />
+                      Unassigned in my zones
+                    </label>
+                    <label className="scope-option">
+                      <input
+                        type="checkbox"
+                        checked={responsibleZonesMode}
+                        onChange={(event) => {
+                          setResponsibleZonesMode(event.target.checked);
+                          if (event.target.checked) {
+                            setShowAssignedToMe(false);
+                            setShowUnassignedInZones(false);
+                          }
+                        }}
+                      />
+                      All work in my responsible zones
+                    </label>
+                  </div>
+                ) : null}
+              </div>
+            </label>
           </>
         )}
       </div>
