@@ -16,32 +16,6 @@ body {
   min-height: 100vh;
   background: linear-gradient(135deg, #eef3ec 0%, #f3f6f1 50%, #edf2eb 100%);
   background-attachment: fixed;
-  position: relative;
-}
-
-body::before,
-body::after {
-  content: "";
-  position: fixed;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: -1;
-}
-
-body::before {
-  width: 50vmax;
-  height: 50vmax;
-  top: -15vmax;
-  right: -10vmax;
-  background: radial-gradient(circle, rgba(44, 133, 86, 0.06) 0%, transparent 70%);
-}
-
-body::after {
-  width: 45vmax;
-  height: 45vmax;
-  bottom: -10vmax;
-  left: -8vmax;
-  background: radial-gradient(circle, rgba(18, 99, 63, 0.05) 0%, transparent 70%);
 }
 
 a {
@@ -139,6 +113,32 @@ a {
   width: min(1120px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 2rem 0 4rem;
+  position: relative;
+}
+
+.content::before,
+.content::after {
+  content: "";
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.content::before {
+  width: 50vmax;
+  height: 50vmax;
+  top: -15vmax;
+  right: -10vmax;
+  background: radial-gradient(circle, rgba(44, 133, 86, 0.06) 0%, transparent 70%);
+}
+
+.content::after {
+  width: 45vmax;
+  height: 45vmax;
+  bottom: -10vmax;
+  left: -8vmax;
+  background: radial-gradient(circle, rgba(18, 99, 63, 0.05) 0%, transparent 70%);
 }
 
 .app-footer {
