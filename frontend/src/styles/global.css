@@ -133,6 +133,60 @@ p {
   padding: 1rem;
 }
 
+.home-page {
+  gap: 1.25rem;
+}
+
+.home-intro {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.home-start-panel {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #b9d7c7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 1rem;
+  box-shadow: 0 10px 26px rgba(18, 99, 63, 0.08);
+}
+
+.home-start-panel div {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.home-start-panel h2,
+.home-section h2 {
+  margin: 0;
+  color: #173f2d;
+  font-size: 1.25rem;
+  letter-spacing: 0;
+}
+
+.home-start-panel a {
+  width: fit-content;
+  border-radius: 6px;
+  padding: 0.65rem 0.9rem;
+  color: #ffffff;
+  background: #12633f;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.home-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.section-heading {
+  display: grid;
+  gap: 0.2rem;
+}
+
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -159,6 +213,15 @@ p {
 .quick-actions span {
   color: #60756c;
   line-height: 1.5;
+}
+
+.compact-actions {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.compact-actions a {
+  padding: 0.85rem;
 }
 
 .live-notifications {
@@ -1885,6 +1948,10 @@ code {
 
   .completion-fields {
     grid-template-columns: 1fr;
+  }
+
+  .home-start-panel {
+    display: grid;
   }
 }
 
