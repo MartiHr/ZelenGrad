@@ -4,6 +4,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AppLayout } from "./layouts/AppLayout";
 import { AboutPage } from "./pages/AboutPage";
 import { AuditPage } from "./pages/AuditPage";
+import { AssetCreatePage } from "./pages/AssetCreatePage";
 import { AssetDetailsPage } from "./pages/AssetDetailsPage";
 import { AssetRegistryEditPage } from "./pages/AssetRegistryEditPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -11,8 +12,10 @@ import { GreenMapPage } from "./pages/GreenMapPage";
 import { HomePage } from "./pages/HomePage";
 import { IncidentReviewPage } from "./pages/IncidentReviewPage";
 import { IncidentDetailsPage } from "./pages/IncidentDetailsPage";
+import { IncidentTriageEditPage } from "./pages/IncidentTriageEditPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MaintenanceTaskDetailsPage } from "./pages/MaintenanceTaskDetailsPage";
+import { MaintenanceTaskEditPage } from "./pages/MaintenanceTaskEditPage";
 import { MyForestPage } from "./pages/MyForestPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -60,6 +63,14 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         )
       },
+      {
+        path: "worklist/:taskId/edit",
+        element: (
+          <ProtectedRoute roles={["MANAGER", "ADMIN"]}>
+            <MaintenanceTaskEditPage />
+          </ProtectedRoute>
+        )
+      },
       { path: "register", element: <RegisterPage /> },
       { path: "login", element: <LoginPage /> },
       {
@@ -94,6 +105,14 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         )
       },
+      {
+        path: "assets/new",
+        element: (
+          <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
+            <AssetCreatePage />
+          </ProtectedRoute>
+        )
+      },
       { path: "assets/:assetId", element: <AssetDetailsPage /> },
       {
         path: "assets/:assetId/edit",
@@ -116,6 +135,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
             <IncidentDetailsPage />
+          </ProtectedRoute>
+        )
+      },
+      {
+        path: "incidents/:incidentId/edit",
+        element: (
+          <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
+            <IncidentTriageEditPage />
           </ProtectedRoute>
         )
       },

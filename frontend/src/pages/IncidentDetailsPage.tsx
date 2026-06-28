@@ -1,10 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { getNextIncidentStatuses, incidentStatusHints } from "../incidents/statusFlow";
-import { validateRequiredText, type FieldErrors } from "../validation";
 
 type Incident = {
   id: string;
@@ -26,39 +25,6 @@ type Incident = {
   verifiedBy: { id: string; name: string; email: string } | null;
 };
 
-type GreenAsset = {
-  id: string;
-  commonName: string | null;
-  species: string;
-  healthStatus: string;
-};
-
-type Zone = {
-  id: string;
-  name: string;
-};
-
-type IncidentEditForm = {
-  title: string;
-  description: string;
-  priority: string;
-  assetId: string;
-  zoneId: string;
-  photoUrls: string;
-};
-
-const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
-type IncidentEditField = "title" | "description" | "photoUrls";
-
-const createIncidentEditForm = (incident: Incident): IncidentEditForm => ({
-  title: incident.title,
-  description: incident.description,
-  priority: incident.priority,
-  assetId: incident.asset?.id ?? "",
-  zoneId: incident.zone?.id ?? "",
-  photoUrls: incident.photoUrls.join("\n")
-});
-
 const formatDateTime = (value: string | null) => {
   if (!value) {
     return "Not recorded";
@@ -74,16 +40,9 @@ export const IncidentDetailsPage = () => {
   const { incidentId } = useParams();
   const { token } = useAuth();
   const [incident, setIncident] = useState<Incident | null>(null);
-  const [assets, setAssets] = useState<GreenAsset[]>([]);
-  const [zones, setZones] = useState<Zone[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [editSuccess, setEditSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<IncidentEditForm | null>(null);
-  const [editFieldErrors, setEditFieldErrors] = useState<FieldErrors<IncidentEditField>>({});
 
   useEffect(() => {
     if (!incidentId || !token) {
@@ -96,27 +55,12 @@ export const IncidentDetailsPage = () => {
     setError(null);
 
     apiRequest<Incident>(`/incidents/${incidentId}`, { token })
-      .then((incidentResponse) => {
-        setIncident(incidentResponse);
-        setEditForm(createIncidentEditForm(incidentResponse));
-      })
+      .then(setIncident)
       .catch((caughtError) => {
         setError(caughtError instanceof ApiError ? caughtError.message : "Could not load incident.");
       })
       .finally(() => setIsLoading(false));
   }, [incidentId, token]);
-
-  useEffect(() => {
-    Promise.all([apiRequest<GreenAsset[]>("/assets"), apiRequest<Zone[]>("/zones")])
-      .then(([assetsResponse, zonesResponse]) => {
-        setAssets(assetsResponse);
-        setZones(zonesResponse);
-      })
-      .catch(() => {
-        setAssets([]);
-        setZones([]);
-      });
-  }, []);
 
   const updateIncidentStatus = async (status: string) => {
     if (!incident || !token) {
@@ -138,81 +82,6 @@ export const IncidentDetailsPage = () => {
       setError(caughtError instanceof ApiError ? caughtError.message : "Could not update incident.");
     } finally {
       setUpdatingStatus(null);
-    }
-  };
-
-  const updateEditForm = (patch: Partial<IncidentEditForm>) => {
-    setEditForm((current) => (current ? { ...current, ...patch } : current));
-  };
-
-  const saveIncident = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!incident || !token || !editForm) {
-      return;
-    }
-
-    setEditError(null);
-    setEditFieldErrors({});
-    setEditSuccess(null);
-
-    try {
-      const photoUrls = editForm.photoUrls
-        .split("\n")
-        .map((photoUrl) => photoUrl.trim())
-        .filter(Boolean);
-      const nextFieldErrors: FieldErrors<IncidentEditField> = {};
-      const titleError = validateRequiredText(editForm.title, "Title", 3);
-      const descriptionError = validateRequiredText(editForm.description, "Description", 10);
-      const invalidPhotoUrl = photoUrls.find((photoUrl) => {
-        try {
-          new URL(photoUrl);
-          return false;
-        } catch {
-          return true;
-        }
-      });
-
-      if (titleError) {
-        nextFieldErrors.title = titleError;
-      }
-
-      if (descriptionError) {
-        nextFieldErrors.description = descriptionError;
-      }
-
-      if (invalidPhotoUrl) {
-        nextFieldErrors.photoUrls = "Every photo URL must be a valid URL.";
-      }
-
-      if (Object.keys(nextFieldErrors).length > 0) {
-        setEditFieldErrors(nextFieldErrors);
-        setEditError("Fix the highlighted incident fields before saving.");
-        return;
-      }
-
-      setIsSaving(true);
-
-      const updatedIncident = await apiRequest<Incident>(`/incidents/${incident.id}`, {
-        method: "PUT",
-        token,
-        body: {
-          title: editForm.title.trim(),
-          description: editForm.description.trim(),
-          priority: editForm.priority,
-          assetId: editForm.assetId || null,
-          zoneId: editForm.zoneId || null,
-          photoUrls
-        }
-      });
-
-      setIncident(updatedIncident);
-      setEditForm(createIncidentEditForm(updatedIncident));
-      setEditSuccess("Incident details updated.");
-    } catch (caughtError) {
-      setEditError(caughtError instanceof ApiError ? caughtError.message : "Could not update incident details.");
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -252,98 +121,13 @@ export const IncidentDetailsPage = () => {
             <span className="status-chip">{incident.zone?.name ?? "Unassigned zone"}</span>
           </div>
         </div>
-        <Link to="/incidents">Back to incidents</Link>
+        <div className="header-actions">
+          <Link to={`/incidents/${incident.id}/edit`}>Edit triage</Link>
+          <Link to="/incidents">Back to incidents</Link>
+        </div>
       </div>
 
       {error ? <p className="form-error">{error}</p> : null}
-
-      {editForm ? (
-        <article className="panel details-panel">
-          <h2>Triage Editor</h2>
-          <form className="inline-form asset-form" onSubmit={(event) => void saveIncident(event)} noValidate>
-            <div className="form-grid">
-              <label>
-                Priority
-                <select value={editForm.priority} onChange={(event) => updateEditForm({ priority: event.target.value })}>
-                  {priorities.map((priority) => (
-                    <option key={priority} value={priority}>
-                      {priority}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Linked asset
-                <select value={editForm.assetId} onChange={(event) => updateEditForm({ assetId: event.target.value })}>
-                  <option value="">Unlinked</option>
-                  {incident.asset && !assets.some((asset) => asset.id === incident.asset?.id) ? (
-                    <option value={incident.asset.id}>
-                      {incident.asset.commonName ?? incident.asset.species}
-                    </option>
-                  ) : null}
-                  {assets.map((asset) => (
-                    <option key={asset.id} value={asset.id}>
-                      {asset.commonName ?? asset.species}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Zone
-                <select value={editForm.zoneId} onChange={(event) => updateEditForm({ zoneId: event.target.value })}>
-                  <option value="">Unassigned</option>
-                  {zones.map((zone) => (
-                    <option key={zone.id} value={zone.id}>
-                      {zone.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Title
-                <input
-                  aria-invalid={Boolean(editFieldErrors.title)}
-                  value={editForm.title}
-                  onChange={(event) => updateEditForm({ title: event.target.value })}
-                  minLength={3}
-                  maxLength={160}
-                  required
-                />
-                {editFieldErrors.title ? <span className="field-error">{editFieldErrors.title}</span> : null}
-              </label>
-            </div>
-            <label>
-              Description
-              <textarea
-                aria-invalid={Boolean(editFieldErrors.description)}
-                value={editForm.description}
-                onChange={(event) => updateEditForm({ description: event.target.value })}
-                minLength={10}
-                maxLength={2000}
-                required
-              />
-              {editFieldErrors.description ? <span className="field-error">{editFieldErrors.description}</span> : null}
-            </label>
-            <label>
-              Photo URLs
-              <textarea
-                aria-invalid={Boolean(editFieldErrors.photoUrls)}
-                value={editForm.photoUrls}
-                onChange={(event) => updateEditForm({ photoUrls: event.target.value })}
-                placeholder="https://example.com/photo.jpg"
-              />
-              {editFieldErrors.photoUrls ? <span className="field-error">{editFieldErrors.photoUrls}</span> : null}
-            </label>
-
-            {editError ? <p className="form-error">{editError}</p> : null}
-            {editSuccess ? <p className="form-success">{editSuccess}</p> : null}
-
-            <button type="submit" disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save Incident"}
-            </button>
-          </form>
-        </article>
-      ) : null}
 
       <div className="details-grid">
         <article className="panel details-panel">
