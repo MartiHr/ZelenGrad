@@ -1734,6 +1734,8 @@ code {
 }
 
 .status-chip {
+  display: inline-flex;
+  align-items: center;
   width: fit-content;
   border: 1px solid #d9e2dc;
   border-radius: 999px;
