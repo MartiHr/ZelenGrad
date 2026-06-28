@@ -92,6 +92,24 @@ export const isPointInPolygon = (
   return inside;
 };
 
+export const getZoneCenter = (boundary: unknown): LatLngPair | null => {
+  const polygons = getZonePolygons(boundary);
+
+  if (polygons.length === 0 || polygons[0].length === 0) {
+    return null;
+  }
+
+  const points = polygons[0];
+  const sum: LatLngPair = [0, 0];
+
+  for (let i = 0; i < points.length; i++) {
+    sum[0] += points[i][0];
+    sum[1] += points[i][1];
+  }
+
+  return [sum[0] / points.length, sum[1] / points.length];
+};
+
 export const createGeoJsonPolygon = (points: LatLngPair[]) => ({
   type: "Polygon",
   coordinates: [[...points.map(([lat, lng]) => [lng, lat]), [points[0][1], points[0][0]]]]
