@@ -312,11 +312,6 @@ p {
     transform 140ms ease;
 }
 
-.quick-actions a svg {
-  color: #12633f;
-  font-size: 1.2rem;
-}
-
 .quick-actions a:hover {
   border-color: #12633f;
   box-shadow: 0 12px 28px rgba(23, 63, 45, 0.1);

@@ -67,9 +67,9 @@ export const AppLayout = () => {
           <span>Urban greenery registry and field operations workspace.</span>
         </div>
         <nav aria-label="Footer navigation">
-          <NavLink to="/map"><FontAwesomeIcon icon={["fas", "map"]} /> Green Map</NavLink>
-          <NavLink to="/about"><FontAwesomeIcon icon={["fas", "circle-info"]} /> About</NavLink>
-          {isAuthenticated ? <NavLink to="/profile"><FontAwesomeIcon icon={["fas", "user"]} /> Profile</NavLink> : <NavLink to="/login"><FontAwesomeIcon icon={["fas", "right-to-bracket"]} /> Login</NavLink>}
+          <NavLink to="/map">Green Map</NavLink>
+          <NavLink to="/about">About</NavLink>
+          {isAuthenticated ? <NavLink to="/profile">Profile</NavLink> : <NavLink to="/login">Login</NavLink>}
         </nav>
       </footer>
       <LiveNotifications />

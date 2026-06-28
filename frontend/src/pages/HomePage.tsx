@@ -1,5 +1,3 @@
-import type { IconName } from "@fortawesome/fontawesome-svg-core";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Link } from "react-router";
 
 import { useAuth } from "../auth/AuthContext";
@@ -9,7 +7,6 @@ type HomeAction = {
   to: string;
   label: string;
   detail: string;
-  icon: IconName;
   group: "primary" | "secondary";
   roles?: UserRole[];
 };
@@ -19,14 +16,12 @@ const actions: HomeAction[] = [
     to: "/map",
     label: "Explore Green Map",
     detail: "Browse registered trees, parks, gardens, and health status.",
-    icon: "map",
     group: "primary"
   },
   {
     to: "/my-forest",
     label: "My Forest",
     detail: "Track adopted trees and log care activity.",
-    icon: "tree",
     group: "primary",
     roles: ["CITIZEN"]
   },
@@ -34,7 +29,6 @@ const actions: HomeAction[] = [
     to: "/incidents",
     label: "Review Incidents",
     detail: "Triage citizen reports and update their review status.",
-    icon: "triangle-exclamation",
     group: "primary",
     roles: ["EMPLOYEE", "MANAGER", "ADMIN"]
   },
@@ -42,7 +36,6 @@ const actions: HomeAction[] = [
     to: "/worklist",
     label: "Open Worklist",
     detail: "Start, complete, and inspect maintenance assignments.",
-    icon: "list-check",
     group: "primary",
     roles: ["EMPLOYEE", "MANAGER", "ADMIN"]
   },
@@ -50,7 +43,6 @@ const actions: HomeAction[] = [
     to: "/dashboard",
     label: "Live Dashboard",
     detail: "Monitor operational metrics and live city activity.",
-    icon: "gauge-high",
     group: "primary",
     roles: ["MANAGER", "ADMIN"]
   },
@@ -58,7 +50,6 @@ const actions: HomeAction[] = [
     to: "/zones",
     label: "Zones",
     detail: "Review assigned areas and zone responsibility.",
-    icon: "draw-polygon",
     group: "primary",
     roles: ["EMPLOYEE", "MANAGER", "ADMIN"]
   },
@@ -66,7 +57,6 @@ const actions: HomeAction[] = [
     to: "/users",
     label: "Manage Users",
     detail: "Adjust roles, accounts, and reward histories.",
-    icon: "users",
     group: "secondary",
     roles: ["ADMIN"]
   },
@@ -74,7 +64,6 @@ const actions: HomeAction[] = [
     to: "/audit",
     label: "Audit History",
     detail: "Inspect recent administrative and operational changes.",
-    icon: "clipboard-list",
     group: "secondary",
     roles: ["ADMIN"]
   }
@@ -125,17 +114,14 @@ export const HomePage = () => {
           </div>
           <div className="quick-actions">
             <Link to="/map">
-              <FontAwesomeIcon icon={["fas", "compass"]} />
               <strong>Browse the map</strong>
               <span>See registered green assets before signing in.</span>
             </Link>
             <Link to="/login">
-              <FontAwesomeIcon icon={["fas", "right-to-bracket"]} />
               <strong>Log in</strong>
               <span>Open your citizen or staff workspace.</span>
             </Link>
             <Link to="/register">
-              <FontAwesomeIcon icon={["fas", "user-plus"]} />
               <strong>Create citizen account</strong>
               <span>Report incidents and adopt trees.</span>
             </Link>
@@ -160,7 +146,6 @@ export const HomePage = () => {
             <div className="quick-actions">
               {primaryActions.map((action) => (
                 <Link key={action.to} to={action.to}>
-                  <FontAwesomeIcon icon={["fas", action.icon]} />
                   <strong>{action.label}</strong>
                   <span>{action.detail}</span>
                 </Link>
@@ -177,7 +162,6 @@ export const HomePage = () => {
               <div className="quick-actions compact-actions">
                 {secondaryActions.map((action) => (
                   <Link key={action.to} to={action.to}>
-                    <FontAwesomeIcon icon={["fas", action.icon]} />
                     <strong>{action.label}</strong>
                     <span>{action.detail}</span>
                   </Link>
