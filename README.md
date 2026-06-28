@@ -191,6 +191,5 @@ Image uploads are handled by backend upload routes and saved as real files for:
 
 ## Notes
 
-- The frontend build currently emits a Vite chunk-size warning because the SPA is bundled as a single large route graph. This is not a failing build.
 - The UI uses focused views for create/edit workflows so detail pages stay readable.
 - Maps default to Sofia and use Leaflet for assets and zone boundaries.
