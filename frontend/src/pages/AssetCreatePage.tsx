@@ -6,7 +6,7 @@ import "leaflet/dist/leaflet.css";
 
 import { ApiError, apiRequest, uploadAssetImage } from "../api";
 import { useAuth } from "../auth/AuthContext";
-import { getZoneCenter, getZonePolygons, isPointInPolygon } from "../map/zoneBoundaries";
+import { getZonePolygons, isPointInPolygon } from "../map/zoneBoundaries";
 import {
   validateCoordinate,
   validateOptionalImageFile,
@@ -330,19 +330,7 @@ export const AssetCreatePage = () => {
                   <div className="map-popup">
                     <strong>{zone.name}</strong>
                     {zone.description ? <span>{zone.description}</span> : null}
-                    <button
-                      type="button"
-                      className="map-popup-button"
-                      onClick={() => {
-                        setAssetZoneId(zone.id);
-                        const center = getZoneCenter(zone.boundary);
-
-                        if (center) {
-                          setAssetLatitude(center[0].toFixed(6));
-                          setAssetLongitude(center[1].toFixed(6));
-                        }
-                      }}
-                    >
+                    <button type="button" className="map-popup-button" onClick={() => setAssetZoneId(zone.id)}>
                       Use this zone
                     </button>
                   </div>
