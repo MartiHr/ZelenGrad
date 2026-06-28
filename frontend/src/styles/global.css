@@ -344,6 +344,40 @@ p {
   list-style: none;
 }
 
+.audit-log-list {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.audit-log-list li {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(180px, 0.9fr) minmax(220px, 1.4fr);
+  gap: 0.75rem;
+  align-items: start;
+  border: 1px solid #edf2ef;
+  border-radius: 8px;
+  background: #fbfdfb;
+  padding: 0.75rem;
+}
+
+.audit-log-list div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.audit-log-list strong {
+  color: #173f2d;
+}
+
+.audit-log-list span,
+.audit-log-list p {
+  color: #60756c;
+  line-height: 1.45;
+}
+
 .event-list li {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -2210,6 +2244,10 @@ code {
 
   .home-start-panel {
     display: grid;
+  }
+
+  .audit-log-list li {
+    grid-template-columns: 1fr;
   }
 }
 

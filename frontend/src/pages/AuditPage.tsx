@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
@@ -93,11 +93,90 @@ const formatDateTime = (value: string | null) => {
 
 const formatAsset = (asset: AssetSummary | null) => asset?.commonName ?? asset?.species ?? "Unlinked";
 
+type AuditEntry = {
+  id: string;
+  actor: string;
+  action: string;
+  entityType: string;
+  entityLabel: string;
+  happenedAt: string;
+  detail: string;
+  href?: string;
+};
+
+const getDateInputValue = (value: string) => value.slice(0, 10);
+
+const buildAuditEntries = (overview: AuditOverview): AuditEntry[] => [
+  ...overview.rewardTransactions.map((reward) => ({
+    id: `reward:${reward.id}`,
+    actor: reward.user.name,
+    action: reward.points >= 0 ? "Awarded points" : "Deducted points",
+    entityType: "Reward",
+    entityLabel: `${reward.points > 0 ? "+" : ""}${reward.points} points`,
+    happenedAt: reward.createdAt,
+    detail: reward.description ?? `${reward.reason} for ${reward.user.email}`
+  })),
+  ...overview.users.map((user) => ({
+    id: `user:${user.id}`,
+    actor: user.name,
+    action: user.isActive ? "Updated active user" : "Updated inactive user",
+    entityType: "User",
+    entityLabel: user.email,
+    happenedAt: user.updatedAt,
+    detail: `${user.role} account with ${user.greenPoints} points`
+  })),
+  ...overview.incidents.map((incident) => ({
+    id: `incident:${incident.id}`,
+    actor: incident.verifiedBy?.name ?? incident.reporter?.name ?? "System",
+    action: `Incident ${incident.status.toLowerCase()}`,
+    entityType: "Incident",
+    entityLabel: incident.title,
+    happenedAt: incident.updatedAt,
+    detail: `${incident.priority} priority | ${formatAsset(incident.asset)} | ${incident.zone?.name ?? "Unassigned zone"}`,
+    href: `/incidents/${incident.id}`
+  })),
+  ...overview.maintenanceTasks.map((task) => ({
+    id: `task:${task.id}`,
+    actor: task.completedBy?.name ?? task.assignedTo?.name ?? "System",
+    action: `Task ${task.status.toLowerCase()}`,
+    entityType: "Maintenance Task",
+    entityLabel: task.title,
+    happenedAt: task.updatedAt,
+    detail: `${task.priority} priority | ${formatAsset(task.asset)} | ${task.zone?.name ?? "No zone"}`,
+    href: `/worklist/${task.id}`
+  })),
+  ...overview.maintenanceLogs.map((log) => ({
+    id: `maintenance-log:${log.id}`,
+    actor: log.employee?.name ?? "Unknown employee",
+    action: "Logged maintenance",
+    entityType: "Maintenance Log",
+    entityLabel: log.task.title,
+    happenedAt: log.performedAt,
+    detail: `${log.resultingHealth ?? log.task.status} | ${formatAsset(log.asset)} | ${log.notes ?? "No notes"}`,
+    href: `/worklist/${log.task.id}`
+  })),
+  ...overview.assetHealthLogs.map((log) => ({
+    id: `health-log:${log.id}`,
+    actor: log.source,
+    action: "Recorded asset health",
+    entityType: "Asset Health Log",
+    entityLabel: formatAsset(log.asset),
+    happenedAt: log.recordedAt,
+    detail: `${log.status} | ${log.notes ?? "No notes"}`,
+    href: `/assets/${log.asset.id}`
+  }))
+].sort((left, right) => new Date(right.happenedAt).getTime() - new Date(left.happenedAt).getTime());
+
 export const AuditPage = () => {
   const { token } = useAuth();
   const [overview, setOverview] = useState<AuditOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [actorFilter, setActorFilter] = useState("");
+  const [actionFilter, setActionFilter] = useState("");
+  const [entityTypeFilter, setEntityTypeFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const loadAuditOverview = async () => {
     if (!token) {
@@ -120,6 +199,43 @@ export const AuditPage = () => {
     void loadAuditOverview();
   }, [token]);
 
+  const auditEntries = useMemo(() => (overview ? buildAuditEntries(overview) : []), [overview]);
+  const actorOptions = useMemo(
+    () => [...new Set(auditEntries.map((entry) => entry.actor))].sort((left, right) => left.localeCompare(right)),
+    [auditEntries]
+  );
+  const actionOptions = useMemo(
+    () => [...new Set(auditEntries.map((entry) => entry.action))].sort((left, right) => left.localeCompare(right)),
+    [auditEntries]
+  );
+  const entityTypeOptions = useMemo(
+    () => [...new Set(auditEntries.map((entry) => entry.entityType))].sort((left, right) => left.localeCompare(right)),
+    [auditEntries]
+  );
+  const filteredAuditEntries = useMemo(
+    () =>
+      auditEntries.filter((entry) => {
+        const entryDate = getDateInputValue(entry.happenedAt);
+
+        return (
+          (!actorFilter || entry.actor === actorFilter) &&
+          (!actionFilter || entry.action === actionFilter) &&
+          (!entityTypeFilter || entry.entityType === entityTypeFilter) &&
+          (!dateFrom || entryDate >= dateFrom) &&
+          (!dateTo || entryDate <= dateTo)
+        );
+      }),
+    [actionFilter, actorFilter, auditEntries, dateFrom, dateTo, entityTypeFilter]
+  );
+
+  const clearFilters = () => {
+    setActorFilter("");
+    setActionFilter("");
+    setEntityTypeFilter("");
+    setDateFrom("");
+    setDateTo("");
+  };
+
   return (
     <section className="page">
       <div className="details-header">
@@ -137,6 +253,92 @@ export const AuditPage = () => {
 
       {overview ? (
         <>
+          <article className="panel details-panel">
+            <div className="panel-title-row">
+              <div>
+                <h2>Audit Log</h2>
+                <p className="muted-text">
+                  Showing {filteredAuditEntries.length} of {auditEntries.length} recent accountable events.
+                </p>
+              </div>
+              <button type="button" className="secondary-action" onClick={clearFilters}>
+                Clear Filters
+              </button>
+            </div>
+
+            <div className="toolbar">
+              <label>
+                Actor
+                <select value={actorFilter} onChange={(event) => setActorFilter(event.target.value)}>
+                  <option value="">All actors</option>
+                  {actorOptions.map((actor) => (
+                    <option key={actor} value={actor}>
+                      {actor}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Action
+                <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)}>
+                  <option value="">All actions</option>
+                  {actionOptions.map((action) => (
+                    <option key={action} value={action}>
+                      {action}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Entity
+                <select value={entityTypeFilter} onChange={(event) => setEntityTypeFilter(event.target.value)}>
+                  <option value="">All entities</option>
+                  {entityTypeOptions.map((entityType) => (
+                    <option key={entityType} value={entityType}>
+                      {entityType}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                From
+                <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+              </label>
+              <label>
+                To
+                <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+              </label>
+            </div>
+
+            {filteredAuditEntries.length ? (
+              <ul className="audit-log-list">
+                {filteredAuditEntries.map((entry) => (
+                  <li key={entry.id}>
+                    <div>
+                      <strong>{entry.action}</strong>
+                      <span>
+                        {entry.actor} | {formatDateTime(entry.happenedAt)}
+                      </span>
+                    </div>
+                    <div>
+                      {entry.href ? (
+                        <Link className="text-link" to={entry.href}>
+                          {entry.entityLabel}
+                        </Link>
+                      ) : (
+                        <strong>{entry.entityLabel}</strong>
+                      )}
+                      <span>{entry.entityType}</span>
+                    </div>
+                    <p>{entry.detail}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No audit events match the current filters.</p>
+            )}
+          </article>
+
           <section className="history-grid">
             <article className="panel details-panel">
               <h2>Reward Adjustments</h2>
