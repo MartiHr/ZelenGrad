@@ -35,7 +35,6 @@ type Zone = {
 type AssetCreateField = "species" | "latitude" | "longitude" | "plantedAt" | "photo";
 
 type MapBoundsProps = {
-  assets: GreenAsset[];
   zones: Zone[];
   draftCoordinates: [number, number] | null;
 };
@@ -49,7 +48,6 @@ const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGE
 const defaultCenter: [number, number] = [42.6977, 23.3219];
 const maxPhotoBytes = 5 * 1024 * 1024;
 
-const getCoordinates = (asset: GreenAsset): [number, number] => [Number(asset.latitude), Number(asset.longitude)];
 const getDraftCoordinates = (latitude: string, longitude: string): [number, number] | null => {
   const parsedLatitude = Number(latitude);
   const parsedLongitude = Number(longitude);
@@ -69,7 +67,7 @@ const draftLocationIcon = L.divIcon({
   popupAnchor: [0, -14]
 });
 
-const MapBounds = ({ assets, draftCoordinates, zones }: MapBoundsProps) => {
+const MapBounds = ({ draftCoordinates, zones }: MapBoundsProps) => {
   const map = useMap();
 
   useEffect(() => {
@@ -78,17 +76,8 @@ const MapBounds = ({ assets, draftCoordinates, zones }: MapBoundsProps) => {
       return;
     }
 
-    const validAssets = assets.filter(
-      (asset) => Number.isFinite(Number(asset.latitude)) && Number.isFinite(Number(asset.longitude))
-    );
-
-    if (validAssets.length === 0) {
-      map.setView(defaultCenter, 12);
-      return;
-    }
-
-    map.fitBounds(L.latLngBounds(validAssets.map(getCoordinates)), { padding: [36, 36], maxZoom: 14 });
-  }, [assets, draftCoordinates, map, zones]);
+    map.setView(defaultCenter, 12);
+  }, [draftCoordinates, map, zones]);
 
   return null;
 };
@@ -309,7 +298,7 @@ export const AssetCreatePage = () => {
               setAssetLongitude(longitude);
             }}
           />
-          <MapBounds assets={assets} draftCoordinates={draftCoordinates} zones={zones} />
+          <MapBounds draftCoordinates={draftCoordinates} zones={zones} />
           {zones.map((zone) =>
             getZonePolygons(zone.boundary).map((positions, index) => (
               <Polygon
