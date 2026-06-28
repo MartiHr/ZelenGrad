@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
@@ -37,12 +37,13 @@ const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 
 export const IncidentReviewPage = () => {
   const { hasRole, token } = useAuth();
+  const [searchParams] = useSearchParams();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
-  const [zoneId, setZoneId] = useState("");
+  const [zoneId, setZoneId] = useState(() => searchParams.get("zoneId") ?? "");
   const [responsibleEmployeeId, setResponsibleEmployeeId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);

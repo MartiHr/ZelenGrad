@@ -48,6 +48,18 @@ export const listManagedZones = async () => {
   });
 };
 
+export const listAssignedZones = async (employeeId: string) => {
+  return prisma.zone.findMany({
+    where: {
+      assignments: {
+        some: { employeeId }
+      }
+    },
+    orderBy: { name: "asc" },
+    include: zoneManagementInclude
+  });
+};
+
 export const getManagedZoneById = async (zoneId: string) => {
   const zone = await prisma.zone.findUnique({
     where: { id: zoneId },

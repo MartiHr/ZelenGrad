@@ -6,6 +6,7 @@ import { validateBody } from "../middleware/validate.js";
 import {
   assignEmployeeToZone,
   createZone,
+  listAssignedZones,
   listManagedZones,
   listZones,
   removeEmployeeFromZone
@@ -14,6 +15,7 @@ import { createZoneSchema, zoneAssignmentSchema } from "../validators/zones.sche
 
 export const zonesRouter = Router();
 const managerRoles = [UserRole.MANAGER, UserRole.ADMIN];
+const staffRoles = [UserRole.EMPLOYEE, UserRole.MANAGER, UserRole.ADMIN];
 
 zonesRouter.get("/", async (_request, response, next) => {
   try {
@@ -30,6 +32,19 @@ zonesRouter.get(
   async (_request, response, next) => {
     try {
       response.json(await listManagedZones());
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+zonesRouter.get(
+  "/me",
+  requireAuth,
+  requireRole(...staffRoles),
+  async (request, response, next) => {
+    try {
+      response.json(await listAssignedZones(request.user!.id));
     } catch (error) {
       next(error);
     }

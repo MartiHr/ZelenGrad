@@ -48,10 +48,10 @@ const actions: HomeAction[] = [
   },
   {
     to: "/zones",
-    label: "Manage Zones",
-    detail: "Coordinate areas and staff responsibility.",
-    group: "secondary",
-    roles: ["MANAGER", "ADMIN"]
+    label: "Zones",
+    detail: "Review assigned areas and zone responsibility.",
+    group: "primary",
+    roles: ["EMPLOYEE", "MANAGER", "ADMIN"]
   },
   {
     to: "/users",

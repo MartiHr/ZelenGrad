@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
@@ -72,13 +72,14 @@ const getNextStatuses = (status: string) => {
 
 export const WorklistPage = () => {
   const { hasRole, token } = useAuth();
+  const [searchParams] = useSearchParams();
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
-  const [zoneFilter, setZoneFilter] = useState("");
+  const [zoneFilter, setZoneFilter] = useState(() => searchParams.get("zoneId") ?? "");
   const [assignedToFilter, setAssignedToFilter] = useState("");
   const [responsibleEmployeeFilter, setResponsibleEmployeeFilter] = useState("");
   const [employeeScope, setEmployeeScope] = useState("assigned");

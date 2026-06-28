@@ -72,7 +72,7 @@ export const router = createBrowserRouter([
       {
         path: "zones",
         element: (
-          <ProtectedRoute roles={["MANAGER", "ADMIN"]}>
+          <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
             <ZonesPage />
           </ProtectedRoute>
         )

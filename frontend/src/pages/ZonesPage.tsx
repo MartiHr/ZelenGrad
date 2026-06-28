@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import L from "leaflet";
+import { Link } from "react-router";
 import { CircleMarker, MapContainer, Polygon, Polyline, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -134,7 +135,7 @@ const BoundaryMap = ({ zones, draftPoints, onAddPoint }: BoundaryMapProps) => (
 );
 
 export const ZonesPage = () => {
-  const { token } = useAuth();
+  const { hasRole, token } = useAuth();
   const [zones, setZones] = useState<Zone[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [name, setName] = useState("");
@@ -151,6 +152,7 @@ export const ZonesPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [updatingAssignment, setUpdatingAssignment] = useState<string | null>(null);
+  const canManageZones = hasRole("MANAGER", "ADMIN");
 
   const loadZones = async () => {
     if (!token) {
@@ -161,7 +163,7 @@ export const ZonesPage = () => {
     setError(null);
 
     try {
-      setZones(await apiRequest<Zone[]>("/zones/management", { token }));
+      setZones(await apiRequest<Zone[]>(canManageZones ? "/zones/management" : "/zones/me", { token }));
     } catch (caughtError) {
       setError(caughtError instanceof ApiError ? caughtError.message : "Could not load zones.");
     } finally {
@@ -171,10 +173,11 @@ export const ZonesPage = () => {
 
   useEffect(() => {
     void loadZones();
-  }, [token]);
+  }, [canManageZones, token]);
 
   useEffect(() => {
-    if (!token) {
+    if (!token || !canManageZones) {
+      setStaffUsers([]);
       return;
     }
 
@@ -183,7 +186,7 @@ export const ZonesPage = () => {
       .catch((caughtError) => {
         setError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
       });
-  }, [token]);
+  }, [canManageZones, token]);
 
   const createZone = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -333,11 +336,25 @@ export const ZonesPage = () => {
 
   return (
     <section className="page">
-      <h1>Zones Management</h1>
-      <p>Manage municipal areas used to organize green assets, incidents, and maintenance work.</p>
+      <h1>{canManageZones ? "Zones Management" : "My Zones"}</h1>
+      <p>
+        {canManageZones
+          ? "Manage municipal areas used to organize green assets, incidents, and maintenance work."
+          : "Review the zones assigned to you and jump into the related work queues."}
+      </p>
 
-      <article className="panel details-panel">
-        <h2>Create Zone</h2>
+      {!canManageZones && zones.length ? (
+        <div className="worklist-summary">
+          <span>{zones.length} assigned zones</span>
+          <span>{zones.reduce((total, zone) => total + zone._count.assets, 0)} assets</span>
+          <span>{zones.reduce((total, zone) => total + zone._count.tasks, 0)} tasks</span>
+          <span>{zones.reduce((total, zone) => total + zone._count.incidents, 0)} incidents</span>
+        </div>
+      ) : null}
+
+      {canManageZones ? (
+        <article className="panel details-panel">
+          <h2>Create Zone</h2>
         <form className="inline-form" onSubmit={(event) => void createZone(event)} noValidate>
           <div className="form-grid">
             <label>
@@ -402,7 +419,8 @@ export const ZonesPage = () => {
             {isCreating ? "Creating..." : "Create Zone"}
           </button>
         </form>
-      </article>
+        </article>
+      ) : null}
 
       {error ? <p className="form-error">{error}</p> : null}
       {assignmentError ? <p className="form-error">{assignmentError}</p> : null}
@@ -415,7 +433,9 @@ export const ZonesPage = () => {
 
       <div className="asset-grid">
         {isLoading ? <p>Loading zones...</p> : null}
-        {!isLoading && zones.length === 0 ? <p>No zones have been created yet.</p> : null}
+        {!isLoading && zones.length === 0 ? (
+          <p>{canManageZones ? "No zones have been created yet." : "You are not assigned to any zones yet."}</p>
+        ) : null}
         {zones.map((zone) => (
           <article className="asset-card" key={zone.id}>
             <div>
@@ -441,7 +461,8 @@ export const ZonesPage = () => {
                 <dd>{zone._count.assignments}</dd>
               </div>
             </dl>
-            <div className="assignment-panel">
+            {canManageZones ? (
+              <div className="assignment-panel">
               <h3>Assigned Staff</h3>
               {zone.assignments.length ? (
                 <ul className="assignment-list">
@@ -483,7 +504,18 @@ export const ZonesPage = () => {
                   Assign
                 </button>
               </div>
-            </div>
+              </div>
+            ) : (
+              <div className="assignment-panel">
+                <h3>Zone Work</h3>
+                <p className="muted-text">Open filtered views for this assigned zone.</p>
+                <div className="button-row">
+                  <Link to={`/worklist?zoneId=${zone.id}`}>Tasks</Link>
+                  <Link to={`/incidents?zoneId=${zone.id}`}>Incidents</Link>
+                  <Link to={`/map?zoneId=${zone.id}`}>Assets</Link>
+                </div>
+              </div>
+            )}
           </article>
         ))}
       </div>

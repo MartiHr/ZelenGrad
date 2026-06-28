@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import L from "leaflet";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { MapContainer, Marker, Polygon, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -144,11 +144,12 @@ const MapClickHandler = ({ onPickCoordinates }: MapClickHandlerProps) => {
 
 export const GreenMapPage = () => {
   const { hasRole, token } = useAuth();
+  const [searchParams] = useSearchParams();
   const [assets, setAssets] = useState<GreenAsset[]>([]);
   const [healthStatus, setHealthStatus] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [species, setSpecies] = useState("");
-  const [zoneId, setZoneId] = useState("");
+  const [zoneId, setZoneId] = useState(() => searchParams.get("zoneId") ?? "");
   const [sortBy, setSortBy] = useState("name-asc");
   const [pageSize, setPageSize] = useState(12);
   const [page, setPage] = useState(1);

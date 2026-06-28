@@ -11,7 +11,7 @@ const navigation: Array<{ to: string; label: string; roles?: UserRole[] }> = [
   { to: "/my-forest", label: "My Forest", roles: ["CITIZEN"] },
   { to: "/worklist", label: "Worklist", roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
   { to: "/incidents", label: "Incidents", roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
-  { to: "/zones", label: "Zones", roles: ["MANAGER", "ADMIN"] },
+  { to: "/zones", label: "Zones", roles: ["EMPLOYEE", "MANAGER", "ADMIN"] },
   { to: "/users", label: "Users", roles: ["ADMIN"] },
   { to: "/audit", label: "Audit", roles: ["ADMIN"] }
 ];
