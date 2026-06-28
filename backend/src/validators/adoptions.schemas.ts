@@ -11,7 +11,7 @@ export const createCareLogSchema = z
     photoUrls: z.array(z.string().trim().url()).default([])
   })
   .refine((input) => Boolean(input.notes) || input.photoUrls.length > 0, {
-    message: "Care notes or a photo URL is required."
+    message: "Care notes or a photo is required."
   });
 
 export type CreateAdoptionInput = z.infer<typeof createAdoptionSchema>;

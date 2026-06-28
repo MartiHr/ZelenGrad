@@ -69,8 +69,8 @@ export const apiRequest = async <T>(path: string, options: ApiOptions = {}) => {
   return data as T;
 };
 
-export const uploadAssetImage = async (file: File, token: string | null) => {
-  const response = await fetch(`${apiConfig.baseUrl}/uploads/assets`, {
+const uploadImage = async (path: "/uploads/assets" | "/uploads/care-logs", file: File, token: string | null) => {
+  const response = await fetch(`${apiConfig.baseUrl}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": file.type,
@@ -87,3 +87,7 @@ export const uploadAssetImage = async (file: File, token: string | null) => {
 
   return (data as UploadResponse).url;
 };
+
+export const uploadAssetImage = (file: File, token: string | null) => uploadImage("/uploads/assets", file, token);
+
+export const uploadCareLogImage = (file: File, token: string | null) => uploadImage("/uploads/care-logs", file, token);

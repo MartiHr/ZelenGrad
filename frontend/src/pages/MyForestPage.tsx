@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 
-import { ApiError, apiRequest } from "../api";
+import { ApiError, apiRequest, uploadCareLogImage } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
 type Adoption = {
@@ -46,7 +46,8 @@ type RewardTransaction = {
 
 type CareFormState = {
   notes: string;
-  photoUrl: string;
+  photoFile: File | null;
+  fileInputKey: number;
   error: string | null;
   success: string | null;
   isSubmitting: boolean;
@@ -64,7 +65,8 @@ const formatDate = (value: string | null) => {
 
 const createInitialCareForm = (): CareFormState => ({
   notes: "",
-  photoUrl: "",
+  photoFile: null,
+  fileInputKey: 0,
   error: null,
   success: null,
   isSubmitting: false
@@ -143,17 +145,17 @@ export const MyForestPage = () => {
     }
 
     const form = careForms[adoptionId] ?? createInitialCareForm();
-    const photoUrl = form.photoUrl.trim();
 
     updateCareForm(adoptionId, { error: null, success: null, isSubmitting: true });
 
     try {
+      const uploadedPhotoUrl = form.photoFile ? await uploadCareLogImage(form.photoFile, token) : null;
       const careLog = await apiRequest<CareLog>(`/adoptions/${adoptionId}/care-logs`, {
         method: "POST",
         token,
         body: {
           notes: form.notes.trim() || undefined,
-          photoUrls: photoUrl ? [photoUrl] : []
+          photoUrls: uploadedPhotoUrl ? [uploadedPhotoUrl] : []
         }
       });
 
@@ -170,7 +172,8 @@ export const MyForestPage = () => {
       );
       updateCareForm(adoptionId, {
         notes: "",
-        photoUrl: "",
+        photoFile: null,
+        fileInputKey: form.fileInputKey + 1,
         success: `Care logged on ${formatDate(careLog.loggedAt)}.`,
         isSubmitting: false
       });
@@ -303,18 +306,25 @@ export const MyForestPage = () => {
                 />
               </label>
               <label>
-                Photo URL
+                Care photo
                 <input
-                  value={form.photoUrl}
-                  onChange={(event) => updateCareForm(adoption.id, { photoUrl: event.target.value })}
-                  placeholder="https://example.com/photo.jpg"
-                  type="url"
+                  accept="image/gif,image/jpeg,image/png,image/webp"
+                  key={form.fileInputKey}
+                  onChange={(event) =>
+                    updateCareForm(adoption.id, {
+                      photoFile: event.target.files?.[0] ?? null,
+                      error: null,
+                      success: null
+                    })
+                  }
+                  type="file"
                 />
               </label>
+              {form.photoFile ? <p className="muted-text">Selected: {form.photoFile.name}</p> : null}
               {form.error ? <p className="form-error">{form.error}</p> : null}
               {form.success ? <p className="form-success">{form.success}</p> : null}
               <button type="submit" disabled={form.isSubmitting}>
-                {form.isSubmitting ? "Logging..." : "Log Care"}
+                {form.isSubmitting ? "Saving..." : "Log Care"}
               </button>
             </form>
             <section className="care-history">
