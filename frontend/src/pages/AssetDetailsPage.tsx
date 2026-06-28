@@ -5,7 +5,6 @@ import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { StaffSearchSelect } from "../components/StaffSearchSelect";
 import {
-  validateCoordinate,
   validateDateOrder,
   validateRequiredText,
   type FieldErrors
@@ -79,27 +78,8 @@ type StaffUser = {
   role: string;
 };
 
-type Zone = {
-  id: string;
-  name: string;
-};
-
-type AssetFormState = {
-  type: string;
-  commonName: string;
-  species: string;
-  description: string;
-  latitude: string;
-  longitude: string;
-  plantedAt: string;
-  healthStatus: string;
-  lifecycleStatus: string;
-  zoneId: string;
-};
-
 type ReportField = "title" | "description";
 type MaintenanceField = "title" | "dueAt";
-type AssetRegistryField = "species" | "latitude" | "longitude" | "plantedAt";
 
 const incidentTypes = [
   "DRY_TREE",
@@ -112,9 +92,6 @@ const incidentTypes = [
 
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 const maintenanceTypes = ["WATERING", "PRUNING", "INSPECTION", "TREATMENT", "CLEANUP", "REMOVAL", "OTHER"];
-const assetTypes = ["TREE", "PARK", "SHRUB", "GARDEN"];
-const assetHealthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED", "REMOVED"];
-const assetLifecycleStatuses = ["ACTIVE", "UNDER_MAINTENANCE", "ARCHIVED"];
 const getAssetPhotoUrl = (asset: Asset) =>
   typeof asset.metadata?.photoUrl === "string" ? asset.metadata.photoUrl : "";
 
@@ -128,27 +105,6 @@ const formatDate = (value: string | null) => {
     timeStyle: "short"
   }).format(new Date(value));
 };
-
-const formatDateInput = (value: string | null) => {
-  if (!value) {
-    return "";
-  }
-
-  return value.slice(0, 10);
-};
-
-const createAssetFormState = (asset: Asset): AssetFormState => ({
-  type: asset.type,
-  commonName: asset.commonName ?? "",
-  species: asset.species,
-  description: asset.description ?? "",
-  latitude: asset.latitude,
-  longitude: asset.longitude,
-  plantedAt: formatDateInput(asset.plantedAt),
-  healthStatus: asset.healthStatus,
-  lifecycleStatus: asset.lifecycleStatus,
-  zoneId: asset.zone?.id ?? ""
-});
 
 export const AssetDetailsPage = () => {
   const { assetId } = useParams();
@@ -176,18 +132,11 @@ export const AssetDetailsPage = () => {
   const [dueAt, setDueAt] = useState("");
   const [assignedToId, setAssignedToId] = useState("");
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
-  const [zones, setZones] = useState<Zone[]>([]);
   const [staffError, setStaffError] = useState<string | null>(null);
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
   const [maintenanceFieldErrors, setMaintenanceFieldErrors] = useState<FieldErrors<MaintenanceField>>({});
   const [createdMaintenanceTask, setCreatedMaintenanceTask] = useState<MaintenanceTask | null>(null);
   const [isSchedulingMaintenance, setIsSchedulingMaintenance] = useState(false);
-  const [assetForm, setAssetForm] = useState<AssetFormState | null>(null);
-  const [assetUpdateError, setAssetUpdateError] = useState<string | null>(null);
-  const [assetFieldErrors, setAssetFieldErrors] = useState<FieldErrors<AssetRegistryField>>({});
-  const [assetUpdateSuccess, setAssetUpdateSuccess] = useState<string | null>(null);
-  const [isUpdatingAsset, setIsUpdatingAsset] = useState(false);
-  const [isArchivingAsset, setIsArchivingAsset] = useState(false);
 
   useEffect(() => {
     if (!assetId) {
@@ -205,7 +154,6 @@ export const AssetDetailsPage = () => {
     ])
       .then(([assetResponse, historyResponse]) => {
         setAsset(assetResponse);
-        setAssetForm(createAssetFormState(assetResponse));
         setHistory(historyResponse);
       })
       .catch((caughtError) => {
@@ -228,17 +176,6 @@ export const AssetDetailsPage = () => {
         setStaffError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
       });
   }, [hasRole, token]);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setZones([]);
-      return;
-    }
-
-    apiRequest<Zone[]>("/zones")
-      .then(setZones)
-      .catch(() => setZones([]));
-  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -391,7 +328,7 @@ export const AssetDetailsPage = () => {
           scheduledFor: scheduledFor || undefined,
           dueAt: dueAt || undefined,
           assetId: asset.id,
-          zoneId: assetForm?.zoneId || asset.zone?.id,
+          zoneId: asset.zone?.id,
           assignedToId: assignedToId || undefined
         }
       });
@@ -410,114 +347,6 @@ export const AssetDetailsPage = () => {
       );
     } finally {
       setIsSchedulingMaintenance(false);
-    }
-  };
-
-  const updateAssetForm = (patch: Partial<AssetFormState>) => {
-    setAssetForm((current) => (current ? { ...current, ...patch } : current));
-  };
-
-  const updateAssetRegistry = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!token || !assetForm) {
-      setAssetUpdateError("Please log in before updating this asset.");
-      return;
-    }
-
-    const nextFieldErrors: FieldErrors<AssetRegistryField> = {};
-    const speciesError = validateRequiredText(assetForm.species, "Species");
-    const latitudeError = validateCoordinate(assetForm.latitude, "Latitude");
-    const longitudeError = validateCoordinate(assetForm.longitude, "Longitude");
-
-    if (speciesError) {
-      nextFieldErrors.species = speciesError;
-    }
-
-    if (latitudeError) {
-      nextFieldErrors.latitude = latitudeError;
-    }
-
-    if (longitudeError) {
-      nextFieldErrors.longitude = longitudeError;
-    }
-
-    if (assetForm.plantedAt && new Date(assetForm.plantedAt).getTime() > Date.now()) {
-      nextFieldErrors.plantedAt = "Planted date cannot be in the future.";
-    }
-
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setAssetFieldErrors(nextFieldErrors);
-      setAssetUpdateError("Fix the highlighted registry fields before saving.");
-      setAssetUpdateSuccess(null);
-      return;
-    }
-
-    setIsUpdatingAsset(true);
-    setAssetUpdateError(null);
-    setAssetFieldErrors({});
-    setAssetUpdateSuccess(null);
-
-    try {
-      const updatedAsset = await apiRequest<Asset>(`/assets/${asset.id}`, {
-        method: "PUT",
-        token,
-        body: {
-          type: assetForm.type,
-          commonName: assetForm.commonName.trim() || undefined,
-          species: assetForm.species.trim(),
-          description: assetForm.description.trim() || undefined,
-          latitude: assetForm.latitude,
-          longitude: assetForm.longitude,
-          plantedAt: assetForm.plantedAt || undefined,
-          healthStatus: assetForm.healthStatus,
-          lifecycleStatus: assetForm.lifecycleStatus,
-          zoneId: assetForm.zoneId || null
-        }
-      });
-
-      const updatedHistory = await apiRequest<AssetHistory>(`/assets/${asset.id}/history`);
-
-      setAsset(updatedAsset);
-      setAssetForm(createAssetFormState(updatedAsset));
-      setHistory(updatedHistory);
-      setAssetUpdateSuccess("Asset registry updated.");
-    } catch (caughtError) {
-      setAssetUpdateError(caughtError instanceof ApiError ? caughtError.message : "Could not update asset.");
-    } finally {
-      setIsUpdatingAsset(false);
-    }
-  };
-
-  const archiveAsset = async () => {
-    if (!token) {
-      setAssetUpdateError("Please log in before archiving this asset.");
-      return;
-    }
-
-    const shouldArchive = window.confirm("Archive this asset? It will no longer appear on the public green map.");
-
-    if (!shouldArchive) {
-      return;
-    }
-
-    setIsArchivingAsset(true);
-    setAssetUpdateError(null);
-    setAssetUpdateSuccess(null);
-
-    try {
-      const archivedAsset = await apiRequest<Asset>(`/assets/${asset.id}`, {
-        method: "DELETE",
-        token
-      });
-
-      setAsset(archivedAsset);
-      setAssetForm(createAssetFormState(archivedAsset));
-      setAssetUpdateSuccess("Asset archived.");
-    } catch (caughtError) {
-      setAssetUpdateError(caughtError instanceof ApiError ? caughtError.message : "Could not archive asset.");
-    } finally {
-      setIsArchivingAsset(false);
     }
   };
 
@@ -572,7 +401,14 @@ export const AssetDetailsPage = () => {
 
       <div className="details-grid">
         <article className="panel details-panel">
-          <h2>Registry</h2>
+          <div className="panel-title-row">
+            <h2>Registry</h2>
+            {isAuthenticated && hasRole("EMPLOYEE", "MANAGER", "ADMIN") ? (
+              <Link className="secondary-link" to={`/assets/${asset.id}/edit`}>
+                Edit
+              </Link>
+            ) : null}
+          </div>
           <dl>
             <div>
               <dt>Species</dt>
@@ -606,139 +442,6 @@ export const AssetDetailsPage = () => {
             </div>
           </dl>
         </article>
-
-        {isAuthenticated && hasRole("EMPLOYEE", "MANAGER", "ADMIN") && assetForm ? (
-          <article className="panel details-panel">
-            <h2>Registry Editor</h2>
-            <form className="inline-form asset-form" onSubmit={(event) => void updateAssetRegistry(event)} noValidate>
-              <div className="form-grid">
-                <label>
-                  Type
-                  <select value={assetForm.type} onChange={(event) => updateAssetForm({ type: event.target.value })}>
-                    {assetTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Health
-                  <select
-                    value={assetForm.healthStatus}
-                    onChange={(event) => updateAssetForm({ healthStatus: event.target.value })}
-                  >
-                    {assetHealthStatuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Lifecycle
-                  <select
-                    value={assetForm.lifecycleStatus}
-                    onChange={(event) => updateAssetForm({ lifecycleStatus: event.target.value })}
-                  >
-                    {assetLifecycleStatuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Common name
-                  <input
-                    value={assetForm.commonName}
-                    onChange={(event) => updateAssetForm({ commonName: event.target.value })}
-                    maxLength={120}
-                  />
-                </label>
-                <label>
-                  Species
-                  <input
-                    aria-invalid={Boolean(assetFieldErrors.species)}
-                    value={assetForm.species}
-                    onChange={(event) => updateAssetForm({ species: event.target.value })}
-                    maxLength={160}
-                    required
-                  />
-                  {assetFieldErrors.species ? <span className="field-error">{assetFieldErrors.species}</span> : null}
-                </label>
-                <label>
-                  Latitude
-                  <input
-                    aria-invalid={Boolean(assetFieldErrors.latitude)}
-                    value={assetForm.latitude}
-                    onChange={(event) => updateAssetForm({ latitude: event.target.value })}
-                    required
-                    step="0.000001"
-                    type="number"
-                  />
-                  {assetFieldErrors.latitude ? <span className="field-error">{assetFieldErrors.latitude}</span> : null}
-                </label>
-                <label>
-                  Longitude
-                  <input
-                    aria-invalid={Boolean(assetFieldErrors.longitude)}
-                    value={assetForm.longitude}
-                    onChange={(event) => updateAssetForm({ longitude: event.target.value })}
-                    required
-                    step="0.000001"
-                    type="number"
-                  />
-                  {assetFieldErrors.longitude ? <span className="field-error">{assetFieldErrors.longitude}</span> : null}
-                </label>
-                <label>
-                  Planted
-                  <input
-                    aria-invalid={Boolean(assetFieldErrors.plantedAt)}
-                    type="date"
-                    value={assetForm.plantedAt}
-                    onChange={(event) => updateAssetForm({ plantedAt: event.target.value })}
-                  />
-                  {assetFieldErrors.plantedAt ? <span className="field-error">{assetFieldErrors.plantedAt}</span> : null}
-                </label>
-                <label>
-                  Zone
-                  <select
-                    value={assetForm.zoneId}
-                    onChange={(event) => updateAssetForm({ zoneId: event.target.value })}
-                  >
-                    <option value="">Unassigned</option>
-                    {zones.map((zone) => (
-                      <option key={zone.id} value={zone.id}>
-                        {zone.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <label>
-                Description
-                <textarea
-                  value={assetForm.description}
-                  onChange={(event) => updateAssetForm({ description: event.target.value })}
-                  maxLength={1000}
-                />
-              </label>
-
-              {assetUpdateError ? <p className="form-error">{assetUpdateError}</p> : null}
-              {assetUpdateSuccess ? <p className="form-success">{assetUpdateSuccess}</p> : null}
-
-              <div className="button-row">
-                <button type="submit" disabled={isUpdatingAsset}>
-                  {isUpdatingAsset ? "Saving..." : "Save Registry"}
-                </button>
-                <button className="danger-button" type="button" disabled={isArchivingAsset} onClick={() => void archiveAsset()}>
-                  {isArchivingAsset ? "Archiving..." : "Archive Asset"}
-                </button>
-              </div>
-            </form>
-          </article>
-        ) : null}
 
         <article className="panel details-panel">
           <h2>Actions</h2>

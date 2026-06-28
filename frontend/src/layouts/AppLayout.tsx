@@ -56,6 +56,17 @@ export const AppLayout = () => {
       <main className="content">
         <Outlet />
       </main>
+      <footer className="app-footer">
+        <div>
+          <strong>ZelenGrad</strong>
+          <span>Urban greenery registry and field operations workspace.</span>
+        </div>
+        <nav aria-label="Footer navigation">
+          <NavLink to="/map">Green Map</NavLink>
+          <NavLink to="/about">About</NavLink>
+          {isAuthenticated ? <NavLink to="/profile">Profile</NavLink> : <NavLink to="/login">Login</NavLink>}
+        </nav>
+      </footer>
       <LiveNotifications />
     </div>
   );

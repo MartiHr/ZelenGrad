@@ -5,6 +5,7 @@ import { AppLayout } from "./layouts/AppLayout";
 import { AboutPage } from "./pages/AboutPage";
 import { AuditPage } from "./pages/AuditPage";
 import { AssetDetailsPage } from "./pages/AssetDetailsPage";
+import { AssetRegistryEditPage } from "./pages/AssetRegistryEditPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { GreenMapPage } from "./pages/GreenMapPage";
 import { HomePage } from "./pages/HomePage";
@@ -94,6 +95,14 @@ export const router = createBrowserRouter([
         )
       },
       { path: "assets/:assetId", element: <AssetDetailsPage /> },
+      {
+        path: "assets/:assetId/edit",
+        element: (
+          <ProtectedRoute roles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
+            <AssetRegistryEditPage />
+          </ProtectedRoute>
+        )
+      },
       {
         path: "incidents",
         element: (
