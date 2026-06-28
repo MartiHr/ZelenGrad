@@ -107,7 +107,7 @@ export const AssetCreatePage = () => {
   const [assetDescription, setAssetDescription] = useState("");
   const [assetLatitude, setAssetLatitude] = useState("");
   const [assetLongitude, setAssetLongitude] = useState("");
-  const [assetPhotoUrl, setAssetPhotoUrl] = useState("");
+
   const [assetPhotoFile, setAssetPhotoFile] = useState<File | null>(null);
   const [assetPhotoPreviewUrl, setAssetPhotoPreviewUrl] = useState("");
   const [assetHealthStatus, setAssetHealthStatus] = useState("HEALTHY");
@@ -186,7 +186,6 @@ export const AssetCreatePage = () => {
 
     setAssetPhotoFile(file);
     setAssetPhotoPreviewUrl(URL.createObjectURL(file));
-    setAssetPhotoUrl("");
     setCreateError(null);
     setCreateFieldErrors((current) => ({ ...current, photo: undefined }));
   };
@@ -198,7 +197,6 @@ export const AssetCreatePage = () => {
 
     setAssetPhotoFile(null);
     setAssetPhotoPreviewUrl("");
-    setAssetPhotoUrl("");
   };
 
   const validateAssetForm = () => {
@@ -224,9 +222,7 @@ export const AssetCreatePage = () => {
       nextFieldErrors.plantedAt = "Planted date cannot be in the future.";
     }
 
-    if (assetPhotoUrl.trim() && assetPhotoFile) {
-      nextFieldErrors.photo = "Use either a photo URL or an uploaded photo, not both.";
-    } else if (photoError) {
+    if (photoError) {
       nextFieldErrors.photo = photoError;
     }
 
@@ -253,7 +249,7 @@ export const AssetCreatePage = () => {
     setCreateFieldErrors({});
 
     try {
-      const savedPhotoUrl = assetPhotoFile ? await uploadAssetImage(assetPhotoFile, token) : assetPhotoUrl.trim();
+      const savedPhotoUrl = assetPhotoFile ? await uploadAssetImage(assetPhotoFile, token) : null;
       const createdAsset = await apiRequest<GreenAsset>("/assets", {
         method: "POST",
         token,
@@ -455,25 +451,7 @@ export const AssetCreatePage = () => {
           </label>
           <div className="photo-registration-grid">
             <label>
-              Photo URL
-              <input
-                aria-invalid={Boolean(createFieldErrors.photo)}
-                value={assetPhotoUrl}
-                onChange={(event) => {
-                  if (assetPhotoPreviewUrl.startsWith("blob:")) {
-                    URL.revokeObjectURL(assetPhotoPreviewUrl);
-                  }
-
-                  setAssetPhotoFile(null);
-                  setAssetPhotoPreviewUrl("");
-                  setAssetPhotoUrl(event.target.value);
-                  setCreateFieldErrors((current) => ({ ...current, photo: undefined }));
-                }}
-                placeholder="https://example.com/tree-photo.jpg"
-              />
-            </label>
-            <label>
-              Upload photo
+              Photo
               <input
                 aria-invalid={Boolean(createFieldErrors.photo)}
                 type="file"
@@ -481,9 +459,9 @@ export const AssetCreatePage = () => {
                 onChange={(event) => choosePhotoFile(event.target.files?.[0])}
               />
             </label>
-            {assetPhotoPreviewUrl || assetPhotoUrl ? (
+            {assetPhotoPreviewUrl ? (
               <figure className="asset-photo-preview">
-                <img src={assetPhotoPreviewUrl || assetPhotoUrl} alt="Selected asset preview" />
+                <img src={assetPhotoPreviewUrl} alt="Selected asset preview" />
                 <button type="button" className="muted-button" onClick={clearSelectedPhoto}>
                   Remove Photo
                 </button>
