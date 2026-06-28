@@ -33,7 +33,7 @@ type UserFormState = {
   error: string | null;
   success: string | null;
   isSaving: boolean;
-  isDeactivating: boolean;
+  isUpdatingStatus: boolean;
 };
 
 type RewardFormState = {
@@ -56,7 +56,7 @@ const createUserForm = (user: ManagedUser): UserFormState => ({
   error: null,
   success: null,
   isSaving: false,
-  isDeactivating: false
+  isUpdatingStatus: false
 });
 
 const createRewardForm = (): RewardFormState => ({
@@ -267,38 +267,44 @@ export const UsersPage = () => {
     }
   };
 
-  const deactivateManagedUser = async (managedUser: ManagedUser) => {
+  const updateManagedUserStatus = async (managedUser: ManagedUser, isActive: boolean) => {
     if (!token) {
-      updateForm(managedUser.id, { error: "Please log in before deactivating users." });
+      updateForm(managedUser.id, { error: "Please log in before updating user status." });
       return;
     }
 
-    const shouldDeactivate = window.confirm(`Deactivate ${managedUser.email}?`);
+    const action = isActive ? "reactivate" : "deactivate";
+    const shouldUpdateStatus = window.confirm(`${action[0].toUpperCase()}${action.slice(1)} ${managedUser.email}?`);
 
-    if (!shouldDeactivate) {
+    if (!shouldUpdateStatus) {
       return;
     }
 
-    updateForm(managedUser.id, { error: null, success: null, isDeactivating: true });
+    updateForm(managedUser.id, { error: null, success: null, isUpdatingStatus: true });
 
     try {
-      const updatedUser = await apiRequest<ManagedUser>(`/users/${managedUser.id}`, {
-        method: "DELETE",
-        token
-      });
+      const updatedUser = isActive
+        ? await apiRequest<ManagedUser>(`/users/${managedUser.id}/reactivate`, {
+            method: "POST",
+            token
+          })
+        : await apiRequest<ManagedUser>(`/users/${managedUser.id}`, {
+            method: "DELETE",
+            token
+          });
 
       setUsers((current) => current.map((user) => (user.id === managedUser.id ? updatedUser : user)));
       setForms((current) => ({
         ...current,
         [managedUser.id]: {
           ...createUserForm(updatedUser),
-          success: "User deactivated."
+          success: isActive ? "User reactivated." : "User deactivated."
         }
       }));
     } catch (caughtError) {
       updateForm(managedUser.id, {
-        error: caughtError instanceof ApiError ? caughtError.message : "Could not deactivate user.",
-        isDeactivating: false
+        error: caughtError instanceof ApiError ? caughtError.message : `Could not ${action} user.`,
+        isUpdatingStatus: false
       });
     }
   };
@@ -472,12 +478,18 @@ export const UsersPage = () => {
                     {form.isSaving ? "Saving..." : "Save User"}
                   </button>
                   <button
-                    className={managedUser.isActive ? "danger-button strong-danger-button" : "muted-button"}
-                    disabled={form.isDeactivating || !managedUser.isActive || isSelf}
-                    onClick={() => void deactivateManagedUser(managedUser)}
+                    className={managedUser.isActive ? "danger-button strong-danger-button" : "activate-button"}
+                    disabled={form.isUpdatingStatus || isSelf}
+                    onClick={() => void updateManagedUserStatus(managedUser, !managedUser.isActive)}
                     type="button"
                   >
-                    {form.isDeactivating ? "Deactivating..." : managedUser.isActive ? "Deactivate Account" : "Already Inactive"}
+                    {form.isUpdatingStatus
+                      ? managedUser.isActive
+                        ? "Deactivating..."
+                        : "Reactivating..."
+                      : managedUser.isActive
+                        ? "Deactivate Account"
+                        : "Reactivate Account"}
                   </button>
                 </div>
               </form>

@@ -1069,6 +1069,19 @@ code {
   background: #edf2ef;
 }
 
+.button-row .activate-button {
+  border-color: #12633f;
+  color: #ffffff;
+  background: #12633f;
+  font-weight: 800;
+}
+
+.button-row .activate-button:hover:not(:disabled) {
+  border-color: #0f5132;
+  color: #ffffff;
+  background: #0f5132;
+}
+
 .task-list {
   display: grid;
   gap: 1rem;

@@ -164,3 +164,11 @@ export const deactivateUser = async (userId: string) => {
     select: publicUserSelect
   });
 };
+
+export const reactivateUser = async (userId: string) => {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { isActive: true },
+    select: publicUserSelect
+  });
+};

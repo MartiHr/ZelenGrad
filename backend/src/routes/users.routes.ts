@@ -8,6 +8,7 @@ import {
   getUserById,
   listStaffUsers,
   listUsers,
+  reactivateUser,
   registerCitizen,
   updateCurrentUser,
   updateUserAsAdmin
@@ -106,6 +107,21 @@ usersRouter.delete("/:userId", requireAuth, requireRole(UserRole.ADMIN), async (
     }
 
     response.json(await deactivateUser(userId));
+  } catch (error) {
+    next(error);
+  }
+});
+
+usersRouter.post("/:userId/reactivate", requireAuth, requireRole(UserRole.ADMIN), async (request, response, next) => {
+  try {
+    const { userId } = request.params;
+
+    if (typeof userId !== "string") {
+      response.status(400).json({ error: "Validation Error", message: "User id is required." });
+      return;
+    }
+
+    response.json(await reactivateUser(userId));
   } catch (error) {
     next(error);
   }
