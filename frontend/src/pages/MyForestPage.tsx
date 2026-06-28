@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import { ApiError, apiRequest, uploadCareLogImage } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { isBlank, validateOptionalImageFile } from "../validation";
 
 type Adoption = {
   id: string;
@@ -145,6 +146,17 @@ export const MyForestPage = () => {
     }
 
     const form = careForms[adoptionId] ?? createInitialCareForm();
+    const fileError = validateOptionalImageFile(form.photoFile, "Care photo");
+
+    if (isBlank(form.notes) && !form.photoFile) {
+      updateCareForm(adoptionId, { error: "Add care notes or a photo before logging care.", success: null });
+      return;
+    }
+
+    if (fileError) {
+      updateCareForm(adoptionId, { error: fileError, success: null });
+      return;
+    }
 
     updateCareForm(adoptionId, { error: null, success: null, isSubmitting: true });
 
@@ -295,7 +307,7 @@ export const MyForestPage = () => {
               <div className="button-row">
                 <Link to={`/assets/${adoption.asset.id}`}>Open details</Link>
               </div>
-              <form className="inline-form care-form" onSubmit={(event) => void submitCareLog(event, adoption.id)}>
+              <form className="inline-form care-form" onSubmit={(event) => void submitCareLog(event, adoption.id)} noValidate>
                 <label>
                   Care notes
                   <textarea

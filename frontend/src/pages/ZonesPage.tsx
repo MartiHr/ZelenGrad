@@ -7,6 +7,7 @@ import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { StaffSearchSelect } from "../components/StaffSearchSelect";
 import { createGeoJsonPolygon, getZonePolygons, type LatLngPair } from "../map/zoneBoundaries";
+import { validateRequiredText, type FieldErrors } from "../validation";
 
 type Zone = {
   id: string;
@@ -38,6 +39,8 @@ type StaffUser = {
   email: string;
   role: string;
 };
+
+type ZoneCreateField = "name" | "boundary";
 
 type BoundaryMapProps = {
   zones: Zone[];
@@ -141,6 +144,7 @@ export const ZonesPage = () => {
   const [assignmentByZone, setAssignmentByZone] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createFieldErrors, setCreateFieldErrors] = useState<FieldErrors<ZoneCreateField>>({});
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null);
@@ -189,12 +193,37 @@ export const ZonesPage = () => {
       return;
     }
 
+    const nextFieldErrors: FieldErrors<ZoneCreateField> = {};
+    const nameError = validateRequiredText(name, "Name", 2);
+    let boundary: unknown;
+
+    if (nameError) {
+      nextFieldErrors.name = nameError;
+    }
+
+    if (boundaryJson.trim()) {
+      try {
+        boundary = JSON.parse(boundaryJson);
+      } catch {
+        nextFieldErrors.boundary = "Boundary must be valid GeoJSON.";
+      }
+    } else if (boundaryPoints.length > 0 && boundaryPoints.length < 3) {
+      nextFieldErrors.boundary = "Click at least three map points to create a boundary.";
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setCreateFieldErrors(nextFieldErrors);
+      setCreateError("Fix the highlighted zone fields before creating.");
+      setCreateSuccess(null);
+      return;
+    }
+
     setIsCreating(true);
     setCreateError(null);
+    setCreateFieldErrors({});
     setCreateSuccess(null);
 
     try {
-      const boundary = boundaryJson.trim() ? JSON.parse(boundaryJson) : undefined;
       const zone = await apiRequest<Zone>("/zones", {
         method: "POST",
         token,
@@ -309,18 +338,23 @@ export const ZonesPage = () => {
 
       <article className="panel details-panel">
         <h2>Create Zone</h2>
-        <form className="inline-form" onSubmit={(event) => void createZone(event)}>
+        <form className="inline-form" onSubmit={(event) => void createZone(event)} noValidate>
           <div className="form-grid">
             <label>
               Name
               <input
+                aria-invalid={Boolean(createFieldErrors.name)}
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  setCreateFieldErrors((current) => ({ ...current, name: undefined }));
+                }}
                 maxLength={120}
                 minLength={2}
                 required
                 placeholder="University District"
               />
+              {createFieldErrors.name ? <span className="field-error">{createFieldErrors.name}</span> : null}
             </label>
           </div>
           <label>
@@ -335,10 +369,15 @@ export const ZonesPage = () => {
           <label>
             Boundary JSON
             <textarea
+              aria-invalid={Boolean(createFieldErrors.boundary)}
               value={boundaryJson}
-              onChange={(event) => setBoundaryJson(event.target.value)}
+              onChange={(event) => {
+                setBoundaryJson(event.target.value);
+                setCreateFieldErrors((current) => ({ ...current, boundary: undefined }));
+              }}
               placeholder='{"type":"Polygon","coordinates":[[[23.31,42.70],[23.33,42.70],[23.33,42.69],[23.31,42.69],[23.31,42.70]]]}'
             />
+            {createFieldErrors.boundary ? <span className="field-error">{createFieldErrors.boundary}</span> : null}
           </label>
           <div className="boundary-editor">
             <div className="boundary-editor-header">

@@ -7,6 +7,12 @@ import "leaflet/dist/leaflet.css";
 import { ApiError, apiRequest, uploadAssetImage } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { getZonePolygons } from "../map/zoneBoundaries";
+import {
+  validateCoordinate,
+  validateOptionalImageFile,
+  validateRequiredText,
+  type FieldErrors
+} from "../validation";
 
 type GreenAsset = {
   id: string;
@@ -38,6 +44,8 @@ type MapBoundsProps = {
 type MapClickHandlerProps = {
   onPickCoordinates: (latitude: string, longitude: string) => void;
 };
+
+type AssetCreateField = "species" | "latitude" | "longitude" | "plantedAt" | "photo";
 
 const healthColors: Record<string, string> = {
   HEALTHY: "#12633f",
@@ -160,6 +168,7 @@ export const GreenMapPage = () => {
   const [assetPlantedAt, setAssetPlantedAt] = useState("");
   const [assetZoneId, setAssetZoneId] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createFieldErrors, setCreateFieldErrors] = useState<FieldErrors<AssetCreateField>>({});
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -279,11 +288,13 @@ export const GreenMapPage = () => {
 
     if (!file.type.startsWith("image/")) {
       setCreateError("Choose an image file for the asset photo.");
+      setCreateFieldErrors({ photo: "Photo must be an image file." });
       return;
     }
 
     if (file.size > maxPhotoBytes) {
       setCreateError("Choose an image under 5 MB.");
+      setCreateFieldErrors({ photo: "Photo must be under 5 MB." });
       return;
     }
 
@@ -295,6 +306,7 @@ export const GreenMapPage = () => {
     setAssetPhotoPreviewUrl(URL.createObjectURL(file));
     setAssetPhotoUrl("");
     setCreateError(null);
+    setCreateFieldErrors((current) => ({ ...current, photo: undefined }));
   };
 
   const clearSelectedPhoto = () => {
@@ -307,6 +319,38 @@ export const GreenMapPage = () => {
     setAssetPhotoUrl("");
   };
 
+  const validateAssetForm = () => {
+    const nextFieldErrors: FieldErrors<AssetCreateField> = {};
+    const speciesError = validateRequiredText(assetSpecies, "Species");
+    const latitudeError = validateCoordinate(assetLatitude, "Latitude");
+    const longitudeError = validateCoordinate(assetLongitude, "Longitude");
+    const photoError = validateOptionalImageFile(assetPhotoFile, "Asset photo");
+
+    if (speciesError) {
+      nextFieldErrors.species = speciesError;
+    }
+
+    if (latitudeError) {
+      nextFieldErrors.latitude = latitudeError;
+    }
+
+    if (longitudeError) {
+      nextFieldErrors.longitude = longitudeError;
+    }
+
+    if (assetPlantedAt && new Date(assetPlantedAt).getTime() > Date.now()) {
+      nextFieldErrors.plantedAt = "Planted date cannot be in the future.";
+    }
+
+    if (assetPhotoUrl.trim() && assetPhotoFile) {
+      nextFieldErrors.photo = "Use either a photo URL or an uploaded photo, not both.";
+    } else if (photoError) {
+      nextFieldErrors.photo = photoError;
+    }
+
+    return nextFieldErrors;
+  };
+
   const createGreenAsset = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -315,8 +359,17 @@ export const GreenMapPage = () => {
       return;
     }
 
+    const nextFieldErrors = validateAssetForm();
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setCreateFieldErrors(nextFieldErrors);
+      setCreateError("Fix the highlighted asset fields before registering.");
+      setCreateSuccess(null);
+      return;
+    }
+
     setIsCreatingAsset(true);
     setCreateError(null);
+    setCreateFieldErrors({});
     setCreateSuccess(null);
 
     try {
@@ -481,7 +534,7 @@ export const GreenMapPage = () => {
         <article className="panel details-panel">
           <h2>Register Asset</h2>
           <p className="muted-text">Tap the map or use device GPS, then add the registry details and optional photo.</p>
-          <form className="inline-form asset-form" onSubmit={(event) => void createGreenAsset(event)}>
+          <form className="inline-form asset-form" onSubmit={(event) => void createGreenAsset(event)} noValidate>
             <div className="form-grid">
               <label>
                 Type
@@ -515,32 +568,38 @@ export const GreenMapPage = () => {
               <label>
                 Species
                 <input
+                  aria-invalid={Boolean(createFieldErrors.species)}
                   value={assetSpecies}
                   onChange={(event) => setAssetSpecies(event.target.value)}
                   maxLength={160}
                   required
                   placeholder="Quercus robur"
                 />
+                {createFieldErrors.species ? <span className="field-error">{createFieldErrors.species}</span> : null}
               </label>
               <label>
                 Latitude
                 <input
+                  aria-invalid={Boolean(createFieldErrors.latitude)}
                   value={assetLatitude}
                   onChange={(event) => setAssetLatitude(event.target.value)}
                   required
                   type="number"
                   step="0.000001"
                 />
+                {createFieldErrors.latitude ? <span className="field-error">{createFieldErrors.latitude}</span> : null}
               </label>
               <label>
                 Longitude
                 <input
+                  aria-invalid={Boolean(createFieldErrors.longitude)}
                   value={assetLongitude}
                   onChange={(event) => setAssetLongitude(event.target.value)}
                   required
                   type="number"
                   step="0.000001"
                 />
+                {createFieldErrors.longitude ? <span className="field-error">{createFieldErrors.longitude}</span> : null}
               </label>
               <div className="field-action">
                 <span>Coordinates</span>
@@ -550,7 +609,13 @@ export const GreenMapPage = () => {
               </div>
               <label>
                 Planted
-                <input type="date" value={assetPlantedAt} onChange={(event) => setAssetPlantedAt(event.target.value)} />
+                <input
+                  aria-invalid={Boolean(createFieldErrors.plantedAt)}
+                  type="date"
+                  value={assetPlantedAt}
+                  onChange={(event) => setAssetPlantedAt(event.target.value)}
+                />
+                {createFieldErrors.plantedAt ? <span className="field-error">{createFieldErrors.plantedAt}</span> : null}
               </label>
               <label>
                 Zone
@@ -578,6 +643,7 @@ export const GreenMapPage = () => {
               <label>
                 Photo URL
                 <input
+                  aria-invalid={Boolean(createFieldErrors.photo)}
                   value={assetPhotoUrl}
                   onChange={(event) => {
                     if (assetPhotoPreviewUrl.startsWith("blob:")) {
@@ -587,13 +653,19 @@ export const GreenMapPage = () => {
                     setAssetPhotoFile(null);
                     setAssetPhotoPreviewUrl("");
                     setAssetPhotoUrl(event.target.value);
+                    setCreateFieldErrors((current) => ({ ...current, photo: undefined }));
                   }}
                   placeholder="https://example.com/tree-photo.jpg"
                 />
               </label>
               <label>
                 Upload photo
-                <input type="file" accept="image/*" onChange={(event) => choosePhotoFile(event.target.files?.[0])} />
+                <input
+                  aria-invalid={Boolean(createFieldErrors.photo)}
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => choosePhotoFile(event.target.files?.[0])}
+                />
               </label>
               {assetPhotoPreviewUrl || assetPhotoUrl ? (
                 <figure className="asset-photo-preview">
@@ -603,6 +675,7 @@ export const GreenMapPage = () => {
                   </button>
                 </figure>
               ) : null}
+              {createFieldErrors.photo ? <span className="field-error">{createFieldErrors.photo}</span> : null}
             </div>
             {createError ? <p className="form-error">{createError}</p> : null}
             {createSuccess ? <p className="form-success">{createSuccess}</p> : null}

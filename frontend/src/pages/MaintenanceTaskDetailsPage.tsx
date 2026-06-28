@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router";
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { StaffSearchSelect } from "../components/StaffSearchSelect";
+import { isBlank, validateDateOrder, validateRequiredText, type FieldErrors } from "../validation";
 
 type UserSummary = {
   id: string;
@@ -70,6 +71,8 @@ type TaskEditForm = {
   assignedToId: string;
 };
 
+type TaskEditField = "title" | "dueAt";
+
 const statuses = ["ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED", "REMOVED"];
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
@@ -118,11 +121,13 @@ export const MaintenanceTaskDetailsPage = () => {
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [resultingHealth, setResultingHealth] = useState("");
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<TaskEditForm | null>(null);
   const [assets, setAssets] = useState<GreenAsset[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [editError, setEditError] = useState<string | null>(null);
+  const [editFieldErrors, setEditFieldErrors] = useState<FieldErrors<TaskEditField>>({});
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [referenceError, setReferenceError] = useState<string | null>(null);
@@ -179,8 +184,14 @@ export const MaintenanceTaskDetailsPage = () => {
       return;
     }
 
+    if (status === "COMPLETED" && isBlank(notes) && !resultingHealth) {
+      setStatusError("Add completion notes or a resulting health value before completing this task.");
+      return;
+    }
+
     setUpdatingStatus(status);
     setError(null);
+    setStatusError(null);
 
     try {
       const updatedTask = await apiRequest<MaintenanceTask>(`/maintenance/${task.id}/status`, {
@@ -214,16 +225,36 @@ export const MaintenanceTaskDetailsPage = () => {
       return;
     }
 
-    setIsSavingTask(true);
     setEditError(null);
+    setEditFieldErrors({});
     setEditSuccess(null);
+
+    const nextFieldErrors: FieldErrors<TaskEditField> = {};
+    const titleError = validateRequiredText(editForm.title, "Title", 3);
+    const dateOrderError = validateDateOrder(editForm.scheduledFor, editForm.dueAt, "scheduled date", "Due date");
+
+    if (titleError) {
+      nextFieldErrors.title = titleError;
+    }
+
+    if (dateOrderError) {
+      nextFieldErrors.dueAt = dateOrderError;
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setEditFieldErrors(nextFieldErrors);
+      setEditError("Fix the highlighted task fields before saving.");
+      return;
+    }
+
+    setIsSavingTask(true);
 
     try {
       const updatedTask = await apiRequest<MaintenanceTask>(`/maintenance/${task.id}`, {
         method: "PUT",
         token,
         body: {
-          title: editForm.title,
+          title: editForm.title.trim(),
           description: editForm.description.trim() || null,
           type: editForm.type,
           priority: editForm.priority,
@@ -283,7 +314,7 @@ export const MaintenanceTaskDetailsPage = () => {
       {canManageTasks && editForm ? (
         <article className="panel details-panel">
           <h2>Task Editor</h2>
-          <form className="inline-form asset-form" onSubmit={(event) => void saveTask(event)}>
+          <form className="inline-form asset-form" onSubmit={(event) => void saveTask(event)} noValidate>
             <div className="form-grid">
               <label>
                 Type
@@ -311,12 +342,14 @@ export const MaintenanceTaskDetailsPage = () => {
               <label>
                 Title
                 <input
+                  aria-invalid={Boolean(editFieldErrors.title)}
                   value={editForm.title}
                   onChange={(event) => updateEditForm({ title: event.target.value })}
                   minLength={3}
                   maxLength={160}
                   required
                 />
+                {editFieldErrors.title ? <span className="field-error">{editFieldErrors.title}</span> : null}
               </label>
               <label>
                 Assignee
@@ -360,10 +393,12 @@ export const MaintenanceTaskDetailsPage = () => {
               <label>
                 Due at
                 <input
+                  aria-invalid={Boolean(editFieldErrors.dueAt)}
                   type="datetime-local"
                   value={editForm.dueAt}
                   onChange={(event) => updateEditForm({ dueAt: event.target.value })}
                 />
+                {editFieldErrors.dueAt ? <span className="field-error">{editFieldErrors.dueAt}</span> : null}
               </label>
               <label>
                 Recurrence
@@ -446,6 +481,7 @@ export const MaintenanceTaskDetailsPage = () => {
               </select>
             </label>
           </div>
+          {statusError ? <p className="form-error">{statusError}</p> : null}
 
           <div className="button-row">
             {statuses.map((status) => (

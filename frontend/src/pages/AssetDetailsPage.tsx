@@ -4,6 +4,12 @@ import { Link, useParams } from "react-router";
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { StaffSearchSelect } from "../components/StaffSearchSelect";
+import {
+  validateCoordinate,
+  validateDateOrder,
+  validateRequiredText,
+  type FieldErrors
+} from "../validation";
 
 type Asset = {
   id: string;
@@ -91,6 +97,10 @@ type AssetFormState = {
   zoneId: string;
 };
 
+type ReportField = "title" | "description";
+type MaintenanceField = "title" | "dueAt";
+type AssetRegistryField = "species" | "latitude" | "longitude" | "plantedAt";
+
 const incidentTypes = [
   "DRY_TREE",
   "VANDALISM",
@@ -152,6 +162,7 @@ export const AssetDetailsPage = () => {
   const [reportTitle, setReportTitle] = useState("");
   const [reportDescription, setReportDescription] = useState("");
   const [reportError, setReportError] = useState<string | null>(null);
+  const [reportFieldErrors, setReportFieldErrors] = useState<FieldErrors<ReportField>>({});
   const [createdIncident, setCreatedIncident] = useState<CreatedIncident | null>(null);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [adoptionError, setAdoptionError] = useState<string | null>(null);
@@ -168,10 +179,12 @@ export const AssetDetailsPage = () => {
   const [zones, setZones] = useState<Zone[]>([]);
   const [staffError, setStaffError] = useState<string | null>(null);
   const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
+  const [maintenanceFieldErrors, setMaintenanceFieldErrors] = useState<FieldErrors<MaintenanceField>>({});
   const [createdMaintenanceTask, setCreatedMaintenanceTask] = useState<MaintenanceTask | null>(null);
   const [isSchedulingMaintenance, setIsSchedulingMaintenance] = useState(false);
   const [assetForm, setAssetForm] = useState<AssetFormState | null>(null);
   const [assetUpdateError, setAssetUpdateError] = useState<string | null>(null);
+  const [assetFieldErrors, setAssetFieldErrors] = useState<FieldErrors<AssetRegistryField>>({});
   const [assetUpdateSuccess, setAssetUpdateSuccess] = useState<string | null>(null);
   const [isUpdatingAsset, setIsUpdatingAsset] = useState(false);
   const [isArchivingAsset, setIsArchivingAsset] = useState(false);
@@ -254,8 +267,28 @@ export const AssetDetailsPage = () => {
       return;
     }
 
+    const nextFieldErrors: FieldErrors<ReportField> = {};
+    const titleError = validateRequiredText(reportTitle, "Title", 3);
+    const descriptionError = validateRequiredText(reportDescription, "Description", 10);
+
+    if (titleError) {
+      nextFieldErrors.title = titleError;
+    }
+
+    if (descriptionError) {
+      nextFieldErrors.description = descriptionError;
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setReportFieldErrors(nextFieldErrors);
+      setReportError("Fix the highlighted incident fields before submitting.");
+      setCreatedIncident(null);
+      return;
+    }
+
     setIsSubmittingReport(true);
     setReportError(null);
+    setReportFieldErrors({});
     setCreatedIncident(null);
 
     try {
@@ -265,8 +298,8 @@ export const AssetDetailsPage = () => {
         body: {
           type: reportType,
           priority: reportPriority,
-          title: reportTitle,
-          description: reportDescription,
+          title: reportTitle.trim(),
+          description: reportDescription.trim(),
           assetId: asset.id,
           zoneId: asset.zone?.id,
           latitude: asset.latitude,
@@ -322,8 +355,28 @@ export const AssetDetailsPage = () => {
       return;
     }
 
+    const nextFieldErrors: FieldErrors<MaintenanceField> = {};
+    const titleError = validateRequiredText(maintenanceTitle, "Title", 3);
+    const dateOrderError = validateDateOrder(scheduledFor, dueAt, "scheduled date", "Due date");
+
+    if (titleError) {
+      nextFieldErrors.title = titleError;
+    }
+
+    if (dateOrderError) {
+      nextFieldErrors.dueAt = dateOrderError;
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setMaintenanceFieldErrors(nextFieldErrors);
+      setMaintenanceError("Fix the highlighted maintenance fields before scheduling.");
+      setCreatedMaintenanceTask(null);
+      return;
+    }
+
     setIsSchedulingMaintenance(true);
     setMaintenanceError(null);
+    setMaintenanceFieldErrors({});
     setCreatedMaintenanceTask(null);
 
     try {
@@ -331,7 +384,7 @@ export const AssetDetailsPage = () => {
         method: "POST",
         token,
         body: {
-          title: maintenanceTitle,
+          title: maintenanceTitle.trim(),
           description: maintenanceDescription.trim() || undefined,
           type: maintenanceType,
           priority: maintenancePriority,
@@ -372,8 +425,37 @@ export const AssetDetailsPage = () => {
       return;
     }
 
+    const nextFieldErrors: FieldErrors<AssetRegistryField> = {};
+    const speciesError = validateRequiredText(assetForm.species, "Species");
+    const latitudeError = validateCoordinate(assetForm.latitude, "Latitude");
+    const longitudeError = validateCoordinate(assetForm.longitude, "Longitude");
+
+    if (speciesError) {
+      nextFieldErrors.species = speciesError;
+    }
+
+    if (latitudeError) {
+      nextFieldErrors.latitude = latitudeError;
+    }
+
+    if (longitudeError) {
+      nextFieldErrors.longitude = longitudeError;
+    }
+
+    if (assetForm.plantedAt && new Date(assetForm.plantedAt).getTime() > Date.now()) {
+      nextFieldErrors.plantedAt = "Planted date cannot be in the future.";
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setAssetFieldErrors(nextFieldErrors);
+      setAssetUpdateError("Fix the highlighted registry fields before saving.");
+      setAssetUpdateSuccess(null);
+      return;
+    }
+
     setIsUpdatingAsset(true);
     setAssetUpdateError(null);
+    setAssetFieldErrors({});
     setAssetUpdateSuccess(null);
 
     try {
@@ -383,7 +465,7 @@ export const AssetDetailsPage = () => {
         body: {
           type: assetForm.type,
           commonName: assetForm.commonName.trim() || undefined,
-          species: assetForm.species,
+          species: assetForm.species.trim(),
           description: assetForm.description.trim() || undefined,
           latitude: assetForm.latitude,
           longitude: assetForm.longitude,
@@ -528,7 +610,7 @@ export const AssetDetailsPage = () => {
         {isAuthenticated && hasRole("EMPLOYEE", "MANAGER", "ADMIN") && assetForm ? (
           <article className="panel details-panel">
             <h2>Registry Editor</h2>
-            <form className="inline-form asset-form" onSubmit={(event) => void updateAssetRegistry(event)}>
+            <form className="inline-form asset-form" onSubmit={(event) => void updateAssetRegistry(event)} noValidate>
               <div className="form-grid">
                 <label>
                   Type
@@ -577,39 +659,47 @@ export const AssetDetailsPage = () => {
                 <label>
                   Species
                   <input
+                    aria-invalid={Boolean(assetFieldErrors.species)}
                     value={assetForm.species}
                     onChange={(event) => updateAssetForm({ species: event.target.value })}
                     maxLength={160}
                     required
                   />
+                  {assetFieldErrors.species ? <span className="field-error">{assetFieldErrors.species}</span> : null}
                 </label>
                 <label>
                   Latitude
                   <input
+                    aria-invalid={Boolean(assetFieldErrors.latitude)}
                     value={assetForm.latitude}
                     onChange={(event) => updateAssetForm({ latitude: event.target.value })}
                     required
                     step="0.000001"
                     type="number"
                   />
+                  {assetFieldErrors.latitude ? <span className="field-error">{assetFieldErrors.latitude}</span> : null}
                 </label>
                 <label>
                   Longitude
                   <input
+                    aria-invalid={Boolean(assetFieldErrors.longitude)}
                     value={assetForm.longitude}
                     onChange={(event) => updateAssetForm({ longitude: event.target.value })}
                     required
                     step="0.000001"
                     type="number"
                   />
+                  {assetFieldErrors.longitude ? <span className="field-error">{assetFieldErrors.longitude}</span> : null}
                 </label>
                 <label>
                   Planted
                   <input
+                    aria-invalid={Boolean(assetFieldErrors.plantedAt)}
                     type="date"
                     value={assetForm.plantedAt}
                     onChange={(event) => updateAssetForm({ plantedAt: event.target.value })}
                   />
+                  {assetFieldErrors.plantedAt ? <span className="field-error">{assetFieldErrors.plantedAt}</span> : null}
                 </label>
                 <label>
                   Zone
@@ -654,7 +744,7 @@ export const AssetDetailsPage = () => {
           <h2>Actions</h2>
           <div className="action-stack">
             {isAuthenticated ? (
-              <form className="inline-form action-section" onSubmit={(event) => void submitIncidentReport(event)}>
+              <form className="inline-form action-section" onSubmit={(event) => void submitIncidentReport(event)} noValidate>
                 <div>
                   <h3>Report Incident</h3>
                   <p className="muted-text">Send a field observation to the review queue.</p>
@@ -684,6 +774,7 @@ export const AssetDetailsPage = () => {
                 <label>
                   Title
                   <input
+                    aria-invalid={Boolean(reportFieldErrors.title)}
                     value={reportTitle}
                     onChange={(event) => setReportTitle(event.target.value)}
                     minLength={3}
@@ -691,11 +782,13 @@ export const AssetDetailsPage = () => {
                     required
                     placeholder="Dry branches near sidewalk"
                   />
+                  {reportFieldErrors.title ? <span className="field-error">{reportFieldErrors.title}</span> : null}
                 </label>
 
                 <label>
                   Description
                   <textarea
+                    aria-invalid={Boolean(reportFieldErrors.description)}
                     value={reportDescription}
                     onChange={(event) => setReportDescription(event.target.value)}
                     minLength={10}
@@ -703,6 +796,7 @@ export const AssetDetailsPage = () => {
                     required
                     placeholder="Describe what you noticed and where it is visible."
                   />
+                  {reportFieldErrors.description ? <span className="field-error">{reportFieldErrors.description}</span> : null}
                 </label>
 
                 {reportError ? <p className="form-error">{reportError}</p> : null}
@@ -744,7 +838,7 @@ export const AssetDetailsPage = () => {
               </div>
             ) : null}
             {isAuthenticated && hasRole("MANAGER", "ADMIN") ? (
-              <form className="inline-form action-section" onSubmit={(event) => void scheduleMaintenance(event)}>
+              <form className="inline-form action-section" onSubmit={(event) => void scheduleMaintenance(event)} noValidate>
                 <div>
                   <h3>Schedule Maintenance</h3>
                   <p className="muted-text">
@@ -779,6 +873,7 @@ export const AssetDetailsPage = () => {
                 <label>
                   Title
                   <input
+                    aria-invalid={Boolean(maintenanceFieldErrors.title)}
                     value={maintenanceTitle}
                     onChange={(event) => setMaintenanceTitle(event.target.value)}
                     minLength={3}
@@ -786,6 +881,7 @@ export const AssetDetailsPage = () => {
                     required
                     placeholder={`Inspect ${asset.commonName ?? asset.species}`}
                   />
+                  {maintenanceFieldErrors.title ? <span className="field-error">{maintenanceFieldErrors.title}</span> : null}
                 </label>
 
                 <label>
@@ -809,7 +905,13 @@ export const AssetDetailsPage = () => {
 
                 <label>
                   Due at
-                  <input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
+                  <input
+                    aria-invalid={Boolean(maintenanceFieldErrors.dueAt)}
+                    type="datetime-local"
+                    value={dueAt}
+                    onChange={(event) => setDueAt(event.target.value)}
+                  />
+                  {maintenanceFieldErrors.dueAt ? <span className="field-error">{maintenanceFieldErrors.dueAt}</span> : null}
                 </label>
 
                 <label>
