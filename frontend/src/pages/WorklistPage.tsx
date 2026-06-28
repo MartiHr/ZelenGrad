@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import { ApiError, apiRequest } from "../api";
@@ -85,6 +85,8 @@ export const WorklistPage = () => {
   const [responsibleZonesMode, setResponsibleZonesMode] = useState(false);
   const [showAssignedToMe, setShowAssignedToMe] = useState(true);
   const [showUnassignedInZones, setShowUnassignedInZones] = useState(true);
+  const [isScopeOpen, setIsScopeOpen] = useState(false);
+  const scopeRef = useRef<HTMLDivElement>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [notesByTask, setNotesByTask] = useState<Record<string, string>>({});
   const [healthByTask, setHealthByTask] = useState<Record<string, string>>({});
@@ -158,6 +160,26 @@ export const WorklistPage = () => {
         setError(caughtError instanceof ApiError ? caughtError.message : "Could not load staff users.");
       });
   }, [canManageWorkload, token]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (scopeRef.current && !scopeRef.current.contains(event.target as Node)) {
+        setIsScopeOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const getScopeLabel = () => {
+    if (responsibleZonesMode) return "All in my zones";
+
+    const parts: string[] = [];
+    if (showAssignedToMe) parts.push("Assigned");
+    if (showUnassignedInZones) parts.push("Unassigned");
+    return parts.length === 0 ? "None" : parts.join(" + ");
+  };
 
   const updateStatus = async (task: MaintenanceTask, status: string) => {
     if (!token) {
@@ -252,33 +274,57 @@ export const WorklistPage = () => {
           </>
         ) : (
           <>
-            <div className="toggle-chip-group">
-              <span className="toggle-chip-label">Scope</span>
-              <button
-                type="button"
-                className={`toggle-chip${showAssignedToMe && !responsibleZonesMode ? " active" : ""}`}
-                disabled={responsibleZonesMode}
-                onClick={() => setShowAssignedToMe((current) => !current)}
-              >
-                Assigned to me
+            <div className="scope-dropdown" ref={scopeRef}>
+              <button type="button" className="scope-dropdown-trigger" onClick={() => setIsScopeOpen((c) => !c)}>
+                Scope: {getScopeLabel()}
               </button>
-              <button
-                type="button"
-                className={`toggle-chip${showUnassignedInZones && !responsibleZonesMode ? " active" : ""}`}
-                disabled={responsibleZonesMode}
-                onClick={() => setShowUnassignedInZones((current) => !current)}
-              >
-                Unassigned in my zones
-              </button>
+              {isScopeOpen ? (
+                <div className="scope-dropdown-panel">
+                  <label className="scope-option">
+                    <input
+                      type="checkbox"
+                      checked={showAssignedToMe}
+                      disabled={responsibleZonesMode}
+                      onChange={(event) => {
+                        setShowAssignedToMe(event.target.checked);
+                        if (event.target.checked) {
+                          setResponsibleZonesMode(false);
+                        }
+                      }}
+                    />
+                    Assigned to me
+                  </label>
+                  <label className="scope-option">
+                    <input
+                      type="checkbox"
+                      checked={showUnassignedInZones}
+                      disabled={responsibleZonesMode}
+                      onChange={(event) => {
+                        setShowUnassignedInZones(event.target.checked);
+                        if (event.target.checked) {
+                          setResponsibleZonesMode(false);
+                        }
+                      }}
+                    />
+                    Unassigned in my zones
+                  </label>
+                  <label className="scope-option">
+                    <input
+                      type="checkbox"
+                      checked={responsibleZonesMode}
+                      onChange={(event) => {
+                        setResponsibleZonesMode(event.target.checked);
+                        if (event.target.checked) {
+                          setShowAssignedToMe(false);
+                          setShowUnassignedInZones(false);
+                        }
+                      }}
+                    />
+                    All work in my responsible zones
+                  </label>
+                </div>
+              ) : null}
             </div>
-            <label className="scope-mode-toggle">
-              <input
-                type="checkbox"
-                checked={responsibleZonesMode}
-                onChange={(event) => setResponsibleZonesMode(event.target.checked)}
-              />
-              All work in my responsible zones
-            </label>
           </>
         )}
       </div>
