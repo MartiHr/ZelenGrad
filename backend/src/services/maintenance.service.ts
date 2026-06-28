@@ -105,6 +105,22 @@ const buildEmployeeWorklistFilter = (
   };
 };
 
+const getNextMaintenanceStatuses = (status: MaintenanceTaskStatus): MaintenanceTaskStatus[] => {
+  switch (status) {
+    case MaintenanceTaskStatus.PLANNED:
+      return [MaintenanceTaskStatus.ASSIGNED, MaintenanceTaskStatus.IN_PROGRESS, MaintenanceTaskStatus.CANCELLED];
+    case MaintenanceTaskStatus.ASSIGNED:
+      return [MaintenanceTaskStatus.IN_PROGRESS, MaintenanceTaskStatus.COMPLETED, MaintenanceTaskStatus.CANCELLED];
+    case MaintenanceTaskStatus.IN_PROGRESS:
+      return [MaintenanceTaskStatus.COMPLETED, MaintenanceTaskStatus.CANCELLED];
+    case MaintenanceTaskStatus.COMPLETED:
+    case MaintenanceTaskStatus.CANCELLED:
+      return [];
+    default:
+      return [];
+  }
+};
+
 export const listMaintenanceTasks = async (query: ListMaintenanceQuery, currentUserId: string, canViewAll: boolean) => {
   const visibilityFilter: Prisma.MaintenanceTaskWhereInput = canViewAll
     ? {}
@@ -220,9 +236,20 @@ export const updateMaintenanceTask = async (taskId: string, input: UpdateMainten
 export const updateMaintenanceTaskStatus = async (
   taskId: string,
   input: UpdateMaintenanceStatusInput,
-  completedById: string
+  currentUserId: string,
+  canViewAll: boolean
 ) => {
-  const existingTask = await getMaintenanceTaskById(taskId);
+  const existingTask = await getMaintenanceTaskForUser(taskId, currentUserId, canViewAll);
+  const nextStatuses = getNextMaintenanceStatuses(existingTask.status);
+
+  if (!nextStatuses.includes(input.status)) {
+    throw new AppError(409, `Cannot move maintenance task from ${existingTask.status} to ${input.status}.`);
+  }
+
+  if (input.status === MaintenanceTaskStatus.COMPLETED && !input.notes && !input.resultingHealth) {
+    throw new AppError(400, "Completion notes or resulting health is required to complete a task.");
+  }
+
   const completedAt = input.status === MaintenanceTaskStatus.COMPLETED ? new Date() : null;
 
   const task = await prisma.$transaction(async (tx) => {
@@ -230,7 +257,7 @@ export const updateMaintenanceTaskStatus = async (
       where: { id: taskId },
       data: {
         status: input.status,
-        completedById: input.status === MaintenanceTaskStatus.COMPLETED ? completedById : null,
+        completedById: input.status === MaintenanceTaskStatus.COMPLETED ? currentUserId : null,
         completedAt
       },
       include: taskDetailInclude
@@ -241,7 +268,7 @@ export const updateMaintenanceTaskStatus = async (
         data: {
           taskId,
           assetId: existingTask.assetId,
-          employeeId: completedById,
+          employeeId: currentUserId,
           notes: input.notes,
           resultingHealth: input.resultingHealth
         }

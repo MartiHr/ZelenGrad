@@ -73,7 +73,7 @@ type TaskEditForm = {
 
 type TaskEditField = "title" | "dueAt";
 
-const statuses = ["ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+const statuses = ["PLANNED", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
 const healthStatuses = ["HEALTHY", "NEEDS_ATTENTION", "DRY", "DISEASED", "DAMAGED", "REMOVED"];
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 const maintenanceTypes = ["WATERING", "PRUNING", "INSPECTION", "TREATMENT", "CLEANUP", "REMOVAL", "OTHER"];
@@ -111,6 +111,22 @@ const createTaskEditForm = (task: MaintenanceTask): TaskEditForm => ({
   zoneId: task.zone?.id ?? "",
   assignedToId: task.assignedTo?.id ?? ""
 });
+
+const getNextStatuses = (status: string) => {
+  switch (status) {
+    case "PLANNED":
+      return ["ASSIGNED", "IN_PROGRESS", "CANCELLED"];
+    case "ASSIGNED":
+      return ["IN_PROGRESS", "COMPLETED", "CANCELLED"];
+    case "IN_PROGRESS":
+      return ["COMPLETED", "CANCELLED"];
+    case "COMPLETED":
+    case "CANCELLED":
+      return [];
+    default:
+      return statuses.filter((nextStatus) => nextStatus !== status);
+  }
+};
 
 export const MaintenanceTaskDetailsPage = () => {
   const { taskId } = useParams();
@@ -298,6 +314,8 @@ export const MaintenanceTaskDetailsPage = () => {
     );
   }
 
+  const nextStatuses = getNextStatuses(task.status);
+
   return (
     <section className="page">
       <div className="details-header">
@@ -460,31 +478,33 @@ export const MaintenanceTaskDetailsPage = () => {
             </div>
           </dl>
 
-          <div className="completion-fields">
-            <label>
-              Completion notes
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Watered with 20 liters, pruned branches, replaced mulch..."
-              />
-            </label>
-            <label>
-              Resulting health
-              <select value={resultingHealth} onChange={(event) => setResultingHealth(event.target.value)}>
-                <option value="">No change</option>
-                {healthStatuses.map((healthStatus) => (
-                  <option key={healthStatus} value={healthStatus}>
-                    {healthStatus}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          {nextStatuses.includes("COMPLETED") ? (
+            <div className="completion-fields">
+              <label>
+                Completion notes
+                <textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Watered with 20 liters, pruned branches, replaced mulch..."
+                />
+              </label>
+              <label>
+                Resulting health
+                <select value={resultingHealth} onChange={(event) => setResultingHealth(event.target.value)}>
+                  <option value="">No change</option>
+                  {healthStatuses.map((healthStatus) => (
+                    <option key={healthStatus} value={healthStatus}>
+                      {healthStatus}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          ) : null}
           {statusError ? <p className="form-error">{statusError}</p> : null}
 
           <div className="button-row">
-            {statuses.map((status) => (
+            {nextStatuses.map((status) => (
               <button
                 key={status}
                 type="button"
@@ -494,6 +514,7 @@ export const MaintenanceTaskDetailsPage = () => {
                 {updatingStatus === status ? "Updating..." : status}
               </button>
             ))}
+            {nextStatuses.length === 0 ? <span className="muted-text">No status actions available.</span> : null}
           </div>
         </article>
 

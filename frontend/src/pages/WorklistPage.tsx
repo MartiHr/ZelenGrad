@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { ApiError, apiRequest } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import { StaffSearchSelect } from "../components/StaffSearchSelect";
+import { isBlank } from "../validation";
 
 type MaintenanceTask = {
   id: string;
@@ -84,6 +85,7 @@ export const WorklistPage = () => {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [notesByTask, setNotesByTask] = useState<Record<string, string>>({});
   const [healthByTask, setHealthByTask] = useState<Record<string, string>>({});
+  const [statusErrorByTask, setStatusErrorByTask] = useState<Record<string, string>>({});
   const canManageWorkload = hasRole("MANAGER", "ADMIN");
 
   const loadTasks = async () => {
@@ -154,8 +156,17 @@ export const WorklistPage = () => {
       return;
     }
 
+    if (status === "COMPLETED" && isBlank(notesByTask[task.id] ?? "") && !healthByTask[task.id]) {
+      setStatusErrorByTask((current) => ({
+        ...current,
+        [task.id]: "Add completion notes or resulting health before completing this task."
+      }));
+      return;
+    }
+
     setUpdatingId(task.id);
     setError(null);
+    setStatusErrorByTask((current) => ({ ...current, [task.id]: "" }));
 
     try {
       const updatedTask = await apiRequest<MaintenanceTask>(`/maintenance/${task.id}/status`, {
@@ -171,6 +182,7 @@ export const WorklistPage = () => {
       setTasks((current) => current.map((currentTask) => (currentTask.id === task.id ? updatedTask : currentTask)));
       setNotesByTask((current) => ({ ...current, [task.id]: "" }));
       setHealthByTask((current) => ({ ...current, [task.id]: "" }));
+      setStatusErrorByTask((current) => ({ ...current, [task.id]: "" }));
     } catch (caughtError) {
       setError(caughtError instanceof ApiError ? caughtError.message : "Could not update task.");
     } finally {
@@ -292,7 +304,8 @@ export const WorklistPage = () => {
         {!isLoading && tasks.length === 0 ? <p>No maintenance tasks match the current filters.</p> : null}
         {tasks.map((task) => {
           const nextStatuses = getNextStatuses(task.status);
-          const isCompleting = updatingId === task.id;
+          const isUpdating = updatingId === task.id;
+          const taskStatusError = statusErrorByTask[task.id];
 
           return (
           <article className={`task-card status-${task.status.toLowerCase()}`} key={task.id}>
@@ -364,6 +377,7 @@ export const WorklistPage = () => {
                 </label>
               </div>
             ) : null}
+            {taskStatusError ? <p className="form-error">{taskStatusError}</p> : null}
 
             <div className="button-row">
               <Link to={`/worklist/${task.id}`}>Open details</Link>
@@ -374,7 +388,7 @@ export const WorklistPage = () => {
                   disabled={updatingId === task.id || task.status === status}
                   onClick={() => void updateStatus(task, status)}
                 >
-                  {isCompleting ? "Updating..." : status}
+                  {isUpdating ? "Updating..." : status}
                 </button>
               ))}
               {nextStatuses.length === 0 ? <span className="muted-text">No status actions available.</span> : null}

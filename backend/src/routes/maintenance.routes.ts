@@ -111,7 +111,8 @@ maintenanceRouter.patch(
         return;
       }
 
-      response.json(await updateMaintenanceTaskStatus(taskId, request.body, request.user!.id));
+      const canViewAll = request.user!.role === UserRole.MANAGER || request.user!.role === UserRole.ADMIN;
+      response.json(await updateMaintenanceTaskStatus(taskId, request.body, request.user!.id, canViewAll));
     } catch (error) {
       next(error);
     }
