@@ -1,3 +1,4 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router";
 
@@ -100,7 +101,9 @@ export const RegisterPage = () => {
         </label>
         {error ? <p className="form-error">{error}</p> : null}
         <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Creating account..." : "Create account"}
+          {isSubmitting
+            ? "Creating account..."
+            : <><FontAwesomeIcon icon={["fas", "user-plus"]} /> Create account</>}
         </button>
       </form>
     </section>

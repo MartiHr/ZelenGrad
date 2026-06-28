@@ -1,3 +1,4 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
@@ -328,7 +329,7 @@ export const DashboardPage = () => {
     <section className="page">
       <div className="details-header">
         <div>
-          <h1>Live Dashboard</h1>
+          <h1><FontAwesomeIcon icon={["fas", "gauge-high"]} /> Live Dashboard</h1>
           <p>Operational snapshot for assets, incidents, maintenance workload, adoptions, and real-time changes.</p>
         </div>
         <button type="button" className="refresh-button" onClick={() => void loadSummary()}>

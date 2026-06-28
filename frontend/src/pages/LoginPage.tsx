@@ -1,3 +1,4 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 
@@ -84,7 +85,7 @@ export const LoginPage = () => {
         </label>
         {error ? <p className="form-error">{error}</p> : null}
         <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Logging in..." : "Login"}
+          {isSubmitting ? "Logging in..." : <><FontAwesomeIcon icon={["fas", "arrow-right"]} /> Login</>}
         </button>
       </form>
     </section>
