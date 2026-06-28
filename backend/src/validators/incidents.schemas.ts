@@ -8,6 +8,8 @@ export const listIncidentsQuerySchema = z.object({
   priority: z.nativeEnum(Priority).optional(),
   responsibleEmployeeId: z.string().trim().min(1).optional(),
   responsibleZoneOnly: z.coerce.boolean().optional(),
+  showAssignedToMe: z.coerce.boolean().optional(),
+  showUnassignedInZones: z.coerce.boolean().optional(),
   assetId: z.string().trim().min(1).optional(),
   zoneId: z.string().trim().min(1).optional()
 });
