@@ -326,15 +326,6 @@ export const AssetCreatePage = () => {
                 }}
               >
                 <Tooltip sticky>{zone.name}</Tooltip>
-                <Popup>
-                  <div className="map-popup">
-                    <strong>{zone.name}</strong>
-                    {zone.description ? <span>{zone.description}</span> : null}
-                    <button type="button" className="map-popup-button" onClick={() => setAssetZoneId(zone.id)}>
-                      Use this zone
-                    </button>
-                  </div>
-                </Popup>
               </Polygon>
             ))
           )}
